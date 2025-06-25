@@ -1,0 +1,306 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# AI 协作执行规则
+
+## 项目理解和上下文
+
+### 项目核心概念
+这是一个名为 `@qile-c/cursor-rules-cli` 的 CLI 工具，专门用于生成和管理 Cursor IDE 的 AI 协作规范。项目的核心价值在于帮助开发者快速为项目配置适合的 AI 协作规则。
+
+**主要功能模块：**
+- **项目检测**: 自动识别项目类型、框架、语言和依赖
+- **规则生成**: 基于项目特征生成对应的 AI 协作规则
+- **模板管理**: 内置多种开发场景的规则模板
+- **配置管理**: 支持全局和项目级配置
+
+### 技术架构概览
+参考 [CURSOR_RULES_CLI_CONTEXT.md](mdc:CURSOR_RULES_CLI_CONTEXT.md) 了解完整的项目架构：
+
+```typescript
+// 核心架构
+src/
+├── cli.ts              # CLI 入口，命令注册
+├── commands/           # 命令实现 (init, list, add, config)
+├── core/              # 核心逻辑 (detector, generator)
+├── templates/         # 规则模板系统
+├── types/             # TypeScript 类型定义
+└── utils/             # 工具函数和辅助类
+```
+
+**关键技术栈：**
+- TypeScript 5.x + 严格模式
+- Node.js >= 20.0.0
+- pnpm >= 9.0.0（包管理器）
+- tsup（构建工具）
+- Jest（测试框架）
+- Commander.js（CLI 框架）
+
+## 代码理解和导航指南
+
+### 文件引用规范
+在分析和修改代码时，使用以下格式引用文件：
+- 主要入口：[src/cli.ts](mdc:src/cli.ts)
+- 类型定义：[src/types/index.ts](mdc:src/types/index.ts)
+- 配置文件：[package.json](mdc:package.json)、[tsconfig.json](mdc:tsconfig.json)
+
+### 核心模块理解
+
+#### 1. CLI 命令系统
+```typescript
+// 命令结构理解
+interface Command {
+  name: string;           // 命令名称
+  description: string;    // 命令描述
+  options: Option[];      // 命令选项
+  action: Function;       // 命令执行函数
+}
+
+// 主要命令
+- init: 初始化项目规则
+- list: 列出可用模板
+- add: 添加特定规则
+- config: 配置管理
+```
+
+#### 2. 项目检测系统
+位于 [src/core/detector.ts](mdc:src/core/detector.ts)，负责：
+- 分析 package.json 依赖关系
+- 检测项目类型（React、Vue、Node.js 等）
+- 识别开发工具（TypeScript、测试框架等）
+- 确定包管理器类型
+
+#### 3. 模板生成系统
+位于 [src/templates/index.ts](mdc:src/templates/index.ts)，包含：
+- 内置规则模板库
+- 模板兼容性检查
+- 动态内容生成
+- 文件写入逻辑
+
+### 代码修改原则
+
+#### TypeScript 开发规范
+严格遵循 [.cursor/rules/basic/typescript.mdc](mdc:.cursor/rules/basic/typescript.mdc)：
+```typescript
+// 类型安全优先
+interface UserInput {
+  template?: TemplateType;
+  force?: boolean;
+  interactive?: boolean;
+}
+
+// 使用类型守卫
+function isValidTemplate(obj: unknown): obj is RuleTemplate {
+  return typeof obj === 'object' &&
+         obj !== null &&
+         'id' in obj &&
+         'name' in obj;
+}
+
+// 错误处理
+class UserError extends Error {
+  constructor(message: string, public suggestions: string[] = []) {
+    super(message);
+    this.name = 'UserError';
+  }
+}
+```
+
+#### CLI 开发规范
+参考 [.cursor/rules/modules/cli-development.mdc](mdc:.cursor/rules/modules/cli-development.mdc)：
+- 使用 inquirer.js 提供交互式体验
+- 用 chalk 和 ora 增强输出效果
+- 实现非交互模式支持
+- 提供详细的错误信息和建议
+
+## 代码修改和增强指导
+
+### 添加新功能
+1. **新增命令**：
+   - 在 `src/commands/` 创建新的命令文件
+   - 在 `src/cli.ts` 注册命令
+   - 添加对应的类型定义
+   - 编写完整的单元测试
+
+2. **新增模板**：
+   - 在 `src/templates/` 添加模板定义
+   - 更新模板注册表
+   - 确保模板兼容性检查
+   - 添加模板测试用例
+
+3. **扩展项目检测**：
+   - 在 `src/core/detector.ts` 添加检测逻辑
+   - 更新 ProjectInfo 类型定义
+   - 考虑向后兼容性
+   - 增加对应测试覆盖
+
+### 性能优化建议
+- **异步优先**：所有 I/O 操作使用 async/await
+- **智能缓存**：缓存频繁访问的模板和配置
+- **并发处理**：使用 Promise.allSettled 处理批量操作
+- **内存管理**：及时释放大对象和事件监听器
+
+### 错误处理策略
+参考 [.cursor/rules/modules/cli-development.mdc](mdc:.cursor/rules/modules/cli-development.mdc)：
+```typescript
+// 分层错误处理
+try {
+  const result = await riskyOperation();
+  return result;
+} catch (error) {
+  if (error instanceof UserError) {
+    console.error(chalk.red('❌ ' + error.message));
+    if (error.suggestions.length > 0) {
+      console.log(chalk.yellow('💡 建议:'));
+      error.suggestions.forEach(s => console.log(`   • ${s}`));
+    }
+  } else {
+    console.error(chalk.red('❌ 系统错误: ' + error.message));
+  }
+  process.exit(1);
+}
+```
+
+## 测试和质量保证
+
+### 测试策略
+遵循 [.cursor/rules/modules/testing.mdc](mdc:.cursor/rules/modules/testing.mdc)：
+- **单元测试**：每个模块的核心逻辑
+- **集成测试**：命令行完整流程
+- **快照测试**：生成的规则文件内容
+- **性能测试**：大型项目处理时间
+
+### 代码质量检查
+在修改代码前后，确保通过以下检查：
+```bash
+pnpm run type-check    # TypeScript 类型检查
+pnpm run lint          # ESLint 代码质量
+pnpm run format:check  # Prettier 格式检查
+pnpm test              # 单元测试
+pnpm run build         # 构建验证
+```
+
+### 测试覆盖率要求
+- 新增代码必须有对应测试
+- 关键业务逻辑要求 100% 覆盖
+- 整体覆盖率维持 80% 以上
+
+## 调试和故障排除
+
+### 常见问题和解决方案
+
+#### 1. 构建失败
+```bash
+# 清理构建缓存
+rm -rf dist tsconfig.tsbuildinfo
+pnpm run build
+
+# 检查类型错误
+pnpm run type-check
+```
+
+#### 2. 测试失败
+```bash
+# 运行特定测试
+pnpm test -- --testPathPattern="command.test.ts"
+
+# 查看详细输出
+pnpm test -- --verbose
+
+# 更新快照
+pnpm test -- --updateSnapshot
+```
+
+#### 3. 模板生成问题
+- 检查 `src/templates/` 中的模板定义
+- 验证项目检测逻辑是否正确
+- 确认文件路径和权限
+- 查看生成的文件内容是否符合预期
+
+### 调试技巧
+1. **VS Code 调试**：使用 [.vscode/launch.json](mdc:.vscode/launch.json) 配置
+2. **日志输出**：使用 chalk 进行颜色区分的日志
+3. **临时调试**：可以使用 console.log，但提交前必须移除
+4. **CI 日志**：查看 GitHub Actions 的详细日志
+
+## 文档和注释规范
+
+### JSDoc 注释
+为公共 API 添加完整的 JSDoc：
+```typescript
+/**
+ * 检测项目类型并生成推荐的规则配置
+ * @param projectPath 项目根目录路径
+ * @param options 检测选项配置
+ * @returns 项目信息和推荐的模板列表
+ * @throws {UserError} 当项目路径无效时
+ * @throws {SystemError} 当文件系统操作失败时
+ */
+export async function detectProject(
+  projectPath: string,
+  options: DetectOptions = {}
+): Promise<ProjectDetectionResult> {
+  // 实现逻辑...
+}
+```
+
+### 内联注释
+- 解释复杂的业务逻辑
+- 说明非显而易见的技术决策
+- 标注临时解决方案和 TODO 项
+- 记录重要的性能考虑
+
+### README 和文档维护
+- 保持 [README.md](mdc:README.md) 与实际功能同步
+- 更新 [docs/](mdc:docs) 目录下的相关文档
+- 维护 [CHANGELOG.md](mdc:CHANGELOG.md) 版本记录
+
+## 协作和审查指南
+
+### 代码审查要点
+1. **功能正确性**：是否实现了预期功能
+2. **类型安全**：TypeScript 类型定义是否完整
+3. **错误处理**：是否有适当的异常处理
+4. **性能影响**：是否影响 CLI 工具的响应速度
+5. **测试覆盖**：是否有相应的测试用例
+6. **文档更新**：是否更新了相关文档
+
+### PR 提交清单
+- [ ] 代码符合项目规范
+- [ ] 所有测试通过
+- [ ] 类型检查无错误
+- [ ] ESLint 检查通过
+- [ ] 有意义的提交信息
+- [ ] 更新了相关文档
+- [ ] 考虑了向后兼容性
+
+### 发布和版本管理
+遵循 [.cursor/rules/workflow/development.mdc](mdc:.cursor/rules/workflow/development.mdc)：
+- 使用语义化版本（Semantic Versioning）
+- 通过 `pnpm run release` 执行发布
+- 确保 CI/CD 流程通过
+- 验证 npm 包发布成功
+
+## AI 协作最佳实践
+
+### 任务理解和分解
+- 充分理解用户需求的上下文
+- 将复杂任务分解为可管理的小步骤
+- 优先处理核心功能，再考虑边缘情况
+- 保持代码的简洁性和可读性
+
+### 代码生成原则
+- 严格遵循项目的 TypeScript 配置
+- 使用项目约定的错误处理模式
+- 保持与现有代码风格的一致性
+- 添加适当的类型注解和文档
+
+### 沟通和反馈
+- 提供清晰的代码修改说明
+- 解释技术决策的原因
+- 指出潜在的风险和注意事项
+- 建议后续的改进方向
+
+通过遵循这些 AI 协作规则，可以确保生成的代码质量高、维护性好，并且与项目的整体架构和规范保持一致。

@@ -1,0 +1,406 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# CLI 工具开发规范
+
+## 项目架构
+
+### CLI 入口和命令结构
+主入口文件：[src/cli.ts](mdc:src/cli.ts) - 注册所有 CLI 命令
+
+```typescript
+// CLI 主入口结构
+import { Command } from 'commander';
+import { initCommand } from '@/commands/init';
+import { listCommand } from '@/commands/list';
+import { addCommand } from '@/commands/add';
+
+const program = new Command();
+
+program
+  .name('@qile-c/cursor-rules-cli')
+  .description('生成和管理 Cursor IDE AI 协作规范的 CLI 工具')
+  .version(process.env.npm_package_version || '1.0.0');
+
+// 注册命令
+program
+  .command('init')
+  .description('为当前项目初始化 Cursor Rules')
+  .option('-t, --template <template>', '指定模板类型')
+  .option('-f, --force', '强制覆盖已存在的规则文件')
+  .action(initCommand);
+```
+
+### 命令模块结构
+每个命令在 [src/commands/](mdc:src/commands) 目录下有独立文件：
+- [src/commands/init.ts](mdc:src/commands/init.ts) - 初始化项目规则
+- [src/commands/list.ts](mdc:src/commands/list.ts) - 列出可用模板
+- [src/commands/add.ts](mdc:src/commands/add.ts) - 添加特定规则
+- [src/commands/config.ts](mdc:src/commands/config.ts) - 配置管理
+
+## 命令设计原则
+
+### 命令实现模式
+```typescript
+// 标准命令结构
+export async function commandName(
+  args: string[],
+  options: CommandOptions
+): Promise<void> {
+  try {
+    // 1. 验证输入参数
+    validateInput(args, options);
+
+    // 2. 显示进度指示
+    const spinner = ora('执行操作中...').start();
+
+    // 3. 执行核心逻辑
+    const result = await executeCommand(args, options);
+
+    // 4. 更新进度状态
+    spinner.succeed('操作完成');
+
+    // 5. 输出结果
+    displayResult(result);
+  } catch (error) {
+    spinner?.fail('操作失败');
+    handleError(error);
+  }
+}
+```
+
+### 命令选项设计
+- 每个命令都应该有清晰的职责和目的
+- 支持 `--help` 显示详细帮助信息
+- 提供简短和完整的选项形式: `-f, --force`
+- 为所有交互提供非交互模式选项
+
+```typescript
+// 命令选项类型定义
+interface InitOptions {
+  template?: TemplateType;
+  force?: boolean;
+  interactive?: boolean;
+  dryRun?: boolean;
+}
+
+// 选项验证
+function validateInitOptions(options: InitOptions): void {
+  if (options.template && !isValidTemplateType(options.template)) {
+    const suggestions = getSimilarTemplates(options.template);
+    throw new UserError(
+      `无效的模板类型: ${options.template}`,
+      suggestions.length > 0 ? [`建议使用: ${suggestions.join(', ')}`] : []
+    );
+  }
+}
+```
+
+## 用户交互设计
+
+### 交互式命令
+使用 [inquirer.js](mdc:https:/www.npmjs.com/package/inquirer) 提供友好的交互体验：
+
+```typescript
+import inquirer from 'inquirer';
+
+// 交互式模板选择
+const answers = await inquirer.prompt([
+  {
+    type: 'list',
+    name: 'template',
+    message: '请选择要使用的模板:',
+    choices: availableTemplates.map(t => ({
+      name: `${t.name} - ${t.description}`,
+      value: t.id,
+    })),
+    default: recommendedTemplate?.id,
+  },
+  {
+    type: 'confirm',
+    name: 'force',
+    message: '是否覆盖已存在的规则文件?',
+    default: false,
+    when: (answers) => hasExistingRules(answers.template),
+  },
+  {
+    type: 'checkbox',
+    name: 'features',
+    message: '选择要启用的功能:',
+    choices: [
+      { name: 'TypeScript 支持', value: 'typescript' },
+      { name: '测试规则', value: 'testing' },
+      { name: 'Git 工作流', value: 'git-workflow' },
+    ],
+  },
+]);
+```
+
+### 输出格式化
+使用 [chalk](mdc:https:/www.npmjs.com/package/chalk) 和 [ora](mdc:https:/www.npmjs.com/package/ora) 增强用户体验：
+
+```typescript
+import chalk from 'chalk';
+import ora from 'ora';
+
+// 统一的输出格式
+console.log(chalk.green('✅ 规则初始化成功'));
+console.log(chalk.yellow('⚠️  发现已存在的配置文件'));
+console.log(chalk.red('❌ 模板不存在'));
+console.log(chalk.blue('ℹ️  提示信息'));
+
+// 进度指示器
+const spinner = ora({
+  text: '正在检测项目类型...',
+  spinner: 'dots',
+}).start();
+
+const projectInfo = await detectProject();
+spinner.succeed(chalk.green('项目类型检测完成'));
+
+// 表格输出
+console.table(templates.map(t => ({
+  ID: t.id,
+  名称: t.name,
+  分类: t.category,
+  描述: t.description,
+})));
+```
+
+## 错误处理与用户反馈
+
+### 错误分类处理
+在 [src/utils/errors.ts](mdc:src/utils/errors.ts) 中定义：
+
+```typescript
+// 用户输入错误
+export class UserError extends Error {
+  constructor(
+    message: string,
+    public suggestions: string[] = [],
+    public code?: string
+  ) {
+    super(message);
+    this.name = 'UserError';
+  }
+}
+
+// 系统运行错误
+export class SystemError extends Error {
+  constructor(
+    message: string,
+    public cause?: Error,
+    public code?: string
+  ) {
+    super(message);
+    this.name = 'SystemError';
+  }
+}
+
+// 网络相关错误
+export class NetworkError extends SystemError {
+  constructor(message: string, cause?: Error) {
+    super(`网络错误: ${message}`, cause, 'NETWORK_ERROR');
+  }
+}
+```
+
+### 统一错误处理
+```typescript
+export function handleError(error: Error): never {
+  if (error instanceof UserError) {
+    console.error(chalk.red('❌ ' + error.message));
+
+    if (error.suggestions.length > 0) {
+      console.log(chalk.yellow('\n💡 建议:'));
+      error.suggestions.forEach(suggestion => {
+        console.log(chalk.yellow(`   • ${suggestion}`));
+      });
+    }
+  } else if (error instanceof SystemError) {
+    console.error(chalk.red('❌ 系统错误: ' + error.message));
+
+    if (error.cause) {
+      console.error(chalk.gray(`   原因: ${error.cause.message}`));
+    }
+
+    console.log(chalk.gray('\n如果问题持续存在，请提交 issue 反馈:'));
+    console.log(chalk.blue('https://github.com/Bourne115/busy-cursor-rules/issues'));
+  } else {
+    console.error(chalk.red('❌ 未知错误: ' + error.message));
+    console.error(chalk.gray('请检查输入参数或联系开发者'));
+  }
+
+  process.exit(1);
+}
+```
+
+## 配置管理
+
+### 配置文件处理
+配置管理在 [src/core/config.ts](mdc:src/core/config.ts)：
+
+```typescript
+// 全局配置接口
+interface GlobalConfig {
+  preferredTemplates: string[];
+  autoUpdate: boolean;
+  language: 'en' | 'zh';
+  registryUrl?: string;
+  cacheDir: string;
+}
+
+// 项目配置接口
+interface ProjectConfig {
+  rules: {
+    basic: string[];
+    modules: string[];
+    workflow: string[];
+  };
+  customRules?: string[];
+  excludePatterns?: string[];
+}
+
+// 配置文件路径
+const CONFIG_PATHS = {
+  global: path.join(os.homedir(), '.cursor-rules', 'config.json'),
+  project: path.join(process.cwd(), '.cursor', 'config.json'),
+} as const;
+```
+
+### 配置操作命令
+```typescript
+// 配置设置
+export async function setConfig(key: string, value: any): Promise<void> {
+  const config = await loadGlobalConfig();
+
+  // 支持嵌套属性设置 (如: rules.basic)
+  const keys = key.split('.');
+  let target = config;
+
+  for (let i = 0; i < keys.length - 1; i++) {
+    target = target[keys[i]] = target[keys[i]] || {};
+  }
+
+  target[keys[keys.length - 1]] = value;
+
+  await saveGlobalConfig(config);
+  console.log(chalk.green(`✅ 配置已更新: ${key} = ${value}`));
+}
+
+// 配置获取
+export async function getConfig(key?: string): Promise<void> {
+  const config = await loadGlobalConfig();
+
+  if (key) {
+    const value = getNestedValue(config, key);
+    console.log(`${key}: ${JSON.stringify(value, null, 2)}`);
+  } else {
+    console.log(JSON.stringify(config, null, 2));
+  }
+}
+```
+
+## 模板系统集成
+
+### 模板处理
+模板相关逻辑在 [src/templates/index.ts](mdc:src/templates/index.ts)：
+
+```typescript
+// 模板获取和验证
+export async function getAvailableTemplates(): Promise<RuleTemplate[]> {
+  const builtinTemplates = await loadBuiltinTemplates();
+  const customTemplates = await loadCustomTemplates();
+
+  return [...builtinTemplates, ...customTemplates];
+}
+
+// 模板应用
+export async function applyTemplate(
+  templateId: string,
+  projectPath: string,
+  options: ApplyOptions = {}
+): Promise<ApplyResult> {
+  const template = await getTemplate(templateId);
+  const projectInfo = await detectProject(projectPath);
+
+  // 验证模板兼容性
+  if (!isTemplateCompatible(template, projectInfo)) {
+    throw new UserError(
+      `模板 ${template.name} 不兼容当前项目类型 ${projectInfo.type}`,
+      [`建议使用: ${getCompatibleTemplates(projectInfo).join(', ')}`]
+    );
+  }
+
+  // 生成文件
+  const files = await generateRuleFiles(template, projectInfo, options);
+
+  // 写入文件
+  if (!options.dryRun) {
+    await writeRuleFiles(files, projectPath, options.force);
+  }
+
+  return {
+    template,
+    files: files.map(f => f.path),
+    projectInfo,
+  };
+}
+```
+
+## 性能优化
+
+### 异步操作优化
+```typescript
+// 并发处理多个模板
+export async function processMultipleTemplates(
+  templateIds: string[]
+): Promise<ProcessResult[]> {
+  // 使用 Promise.allSettled 避免一个失败影响其他
+  const results = await Promise.allSettled(
+    templateIds.map(id => processTemplate(id))
+  );
+
+  return results.map((result, index) => ({
+    templateId: templateIds[index],
+    success: result.status === 'fulfilled',
+    data: result.status === 'fulfilled' ? result.value : null,
+    error: result.status === 'rejected' ? result.reason : null,
+  }));
+}
+
+// 缓存重复操作
+const templateCache = new Map<string, RuleTemplate>();
+
+export async function getCachedTemplate(id: string): Promise<RuleTemplate> {
+  if (templateCache.has(id)) {
+    return templateCache.get(id)!;
+  }
+
+  const template = await loadTemplate(id);
+  templateCache.set(id, template);
+  return template;
+}
+```
+
+### 文件系统优化
+```typescript
+// 批量文件操作
+export async function writeMultipleFiles(
+  files: Array<{ path: string; content: string }>,
+  baseDir: string
+): Promise<void> {
+  // 确保目录存在
+  const dirs = new Set(files.map(f => path.dirname(path.join(baseDir, f.path))));
+  await Promise.all([...dirs].map(dir => fs.ensureDir(dir)));
+
+  // 并发写入文件
+  await Promise.all(
+    files.map(file =>
+      fs.writeFile(path.join(baseDir, file.path), file.content, 'utf8')
+    )
+  );
+}
+```

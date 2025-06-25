@@ -1,0 +1,355 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+---
+
+---
+# 开发工作流程规范
+
+## 开发环境配置
+
+### 环境要求和版本
+- **Node.js**: >= 20.0.0 (当前使用 v20.12.2)
+- **包管理器**: pnpm >= 9.0.0 (当前使用 v10.11.1)
+- **TypeScript**: 使用项目配置的版本 (v5.x)
+- **编辑器**: VS Code (推荐，已配置开发环境)
+
+### 开发环境初始化
+检查 [package.json](mdc:package.json) 了解最新的脚本命令：
+
+```bash
+# 1. 克隆项目并进入目录
+git clone https://github.com/Bourne115/busy-cursor-rules.git
+cd busy-cursor-rules
+
+# 2. 安装依赖
+pnpm install
+
+# 3. 设置 Git 钩子
+pnpm run prepare
+
+# 4. 验证开发环境
+pnpm run type-check    # TypeScript 类型检查
+pnpm run lint          # ESLint 代码检查
+pnpm run format:check  # Prettier 格式检查
+pnpm test              # 运行测试
+pnpm run build         # 构建项目
+```
+
+### 开发工具配置
+项目已配置的开发工具在 [.vscode/settings.json](mdc:.vscode/settings.json)：
+- ESLint 自动修复
+- Prettier 自动格式化
+- TypeScript 错误检查
+- 保存时自动操作
+
+## Git 工作流程
+
+### 分支策略
+项目使用简化的 Git Flow：
+- `main`: 主分支，保持稳定
+- `feature/feature-name`: 功能开发分支
+- `fix/bug-description`: 错误修复分支
+- `hotfix/urgent-fix`: 紧急修复分支
+
+### 标准开发流程
+```bash
+# 1. 从主分支创建功能分支
+git checkout main
+git pull origin main
+git checkout -b feature/new-template-system
+
+# 2. 开发和提交
+# ... 进行代码开发 ...
+
+# 3. 使用约定式提交
+pnpm run commit  # 交互式提交工具
+
+# 4. 推送分支
+git push origin feature/new-template-system
+
+# 5. 创建 Pull Request
+# 在 GitHub 上创建 PR，等待代码审查
+
+# 6. 合并后清理
+git checkout main
+git pull origin main
+git branch -d feature/new-template-system
+```
+
+### 提交信息规范
+项目使用 [Conventional Commits](mdc:https:/www.conventionalcommits.org) 格式，配置在 [commitizen](mdc:https:/www.npmjs.com/package/commitizen)：
+
+```bash
+# 推荐使用交互式提交
+pnpm run commit
+
+# 提交类型说明
+feat:      新功能
+fix:       错误修复
+docs:      文档更新
+style:     代码格式调整 (不影响功能)
+refactor:  代码重构
+test:      测试相关
+chore:     杂务任务 (构建、工具等)
+perf:      性能优化
+ci:        CI/CD 相关
+```
+
+## 代码质量控制
+
+### 预提交检查
+项目使用 [simple-git-hooks](mdc:https:/www.npmjs.com/package/simple-git-hooks) 和 [lint-staged](mdc:https:/www.npmjs.com/package/lint-staged) 实现预提交检查，配置在 [package.json](mdc:package.json)：
+
+```json
+{
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}
+```
+
+### 代码检查命令
+```bash
+# 类型检查
+pnpm run type-check
+
+# 代码风格检查
+pnpm run lint           # 检查问题
+pnpm run lint:fix       # 自动修复
+
+# 代码格式检查
+pnpm run format:check   # 检查格式
+pnpm run format         # 自动格式化
+
+# 运行测试
+pnpm test               # 单元测试
+pnpm run test:coverage  # 覆盖率报告
+pnpm run test:watch     # 监视模式
+```
+
+## 构建和发布流程
+
+### 本地构建
+使用 [tsup](mdc:https:/www.npmjs.com/package/tsup) 进行快速构建，配置在 [tsup.config.ts](mdc:tsup.config.ts)：
+
+```bash
+# 开发构建
+pnpm run build
+
+# 监视模式构建
+pnpm run build:watch
+
+# 开发模式运行
+pnpm run dev
+
+# 清理构建文件
+pnpm run clean
+```
+
+### 版本发布
+项目支持语义化版本发布，使用快速发布脚本 [quick-release.sh](mdc:quick-release.sh)：
+
+```bash
+# 快速发布 (自动检测版本类型)
+pnpm run release
+
+# 指定版本类型发布
+pnpm run release:patch   # 1.0.0 -> 1.0.1 (错误修复)
+pnpm run release:minor   # 1.0.0 -> 1.1.0 (新功能)
+pnpm run release:major   # 1.0.0 -> 2.0.0 (破坏性更改)
+
+# 预发布版本
+pnpm run release:beta    # 1.0.0 -> 1.0.1-beta.0
+```
+
+### 发布前检查清单
+发布脚本会自动执行以下检查：
+- [ ] TypeScript 类型检查通过
+- [ ] ESLint 代码检查通过
+- [ ] Prettier 格式检查通过
+- [ ] 所有测试通过
+- [ ] 构建成功无错误
+- [ ] CHANGELOG.md 更新
+- [ ] Git 状态干净
+- [ ] 版本号正确递增
+
+## CI/CD 流程
+
+### GitHub Actions 配置
+项目配置了两个主要工作流：
+
+#### 1. 持续集成 ([.github/workflows/ci.yml](mdc:.github/workflows/ci.yml))
+```yaml
+# 触发条件
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 检查步骤
+- 代码检出
+- Node.js 和 pnpm 环境配置
+- 依赖安装和缓存
+- 类型检查、代码质量检查、测试
+- 构建验证
+```
+
+#### 2. 自动发布 ([.github/workflows/release.yml](mdc:.github/workflows/release.yml))
+```yaml
+# 触发条件
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 发布步骤
+- 等待 CI 通过
+- 构建项目
+- 发布到 npm
+- 创建 GitHub Release
+```
+
+### 发布权限配置
+确保 GitHub Repository 设置中配置了正确的权限：
+- **Actions permissions**: Read and write permissions
+- **npm token**: 在 Repository Secrets 中配置 `NPM_TOKEN`
+
+## 开发调试指南
+
+### 本地调试
+```bash
+# 本地开发调试
+pnpm run dev
+
+# 构建后测试
+pnpm run build
+node dist/cli.js --help
+
+# 全局安装测试
+pnpm run build
+npm install -g .
+cursor-rules --help
+```
+
+### VS Code 调试配置
+项目包含 VS Code 调试配置 [.vscode/launch.json](mdc:.vscode/launch.json)：
+- **Launch CLI**: 调试 CLI 入口
+- **Run Tests**: 调试测试用例
+- **Attach to Node**: 附加到运行中的 Node.js 进程
+
+### 常见问题排查
+
+#### 1. 依赖安装问题
+```bash
+# 清理缓存和依赖
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
+
+# 检查 Node.js 版本
+node --version  # 应该 >= 20.0.0
+pnpm --version  # 应该 >= 9.0.0
+```
+
+#### 2. Git 钩子问题
+```bash
+# 重新安装 Git 钩子
+rm -rf .git/hooks
+pnpm run prepare
+
+# 手动运行检查
+npx lint-staged
+```
+
+#### 3. TypeScript 编译问题
+```bash
+# 清理 TypeScript 缓存
+rm -rf dist tsconfig.tsbuildinfo
+
+# 重新编译
+pnpm run type-check
+pnpm run build
+```
+
+#### 4. 测试失败问题
+```bash
+# 运行单个测试文件
+pnpm test -- --testPathPattern="init.test.ts"
+
+# 查看详细测试输出
+pnpm test -- --verbose
+
+# 更新快照
+pnpm test -- --updateSnapshot
+```
+
+## 性能优化指南
+
+### 构建优化
+- 使用 tsup 的 ESM/CJS 双格式输出
+- 启用代码压缩和 Tree-shaking
+- 合理配置外部依赖
+
+### 运行时优化
+- 使用异步操作避免阻塞
+- 实现智能缓存机制
+- 优化文件 I/O 操作
+- 合理处理内存使用
+
+### 监控和分析
+```bash
+# 分析包大小
+pnpm run build
+ls -la dist/
+
+# 检查内存使用
+node --inspect dist/cli.js
+
+# 性能分析
+time cursor-rules init --template=react
+```
+
+## 项目维护
+
+### 依赖更新
+```bash
+# 检查过时依赖
+pnpm outdated
+
+# 交互式更新
+pnpm update -i
+
+# 安全检查
+pnpm audit
+pnpm audit --fix
+```
+
+### 文档维护
+- 保持 [README.md](mdc:README.md) 与代码同步
+- 更新 [docs/](mdc:docs) 目录下的文档
+- 维护 [CHANGELOG.md](mdc:CHANGELOG.md) 版本记录
+- 确保 JSDoc 注释完整准确
+
+### 代码重构原则
+- 保持向后兼容性
+- 渐进式重构，避免大量破坏性更改
+- 完善测试覆盖率后再重构
+- 及时更新文档和类型定义
+
+### 社区贡献
+- 及时响应 GitHub Issues
+- 审查 Pull Requests
+- 维护项目 Roadmap
+- 发布版本和更新日志

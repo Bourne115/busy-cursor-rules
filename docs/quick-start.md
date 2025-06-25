@@ -7,20 +7,23 @@
 ```bash
 # 1. 克隆项目
 git clone https://github.com/Bourne115/busy-cursor-rules.git
-cd cursor-rules-cli
+cd busy-cursor-rules
 
-# 2. 使用 Makefile 一键设置
-make setup
+# 2. 安装依赖
+pnpm install
 
-# 3. 开始开发
-make dev
+# 3. 设置 Git 钩子
+pnpm run prepare
+
+# 4. 开始开发
+pnpm run dev
 ```
 
 ## 📋 详细步骤
 
 ### 1. 环境要求
 
-- **Node.js**: >= 16.0.0 (推荐 18.x 或 20.x)
+- **Node.js**: >= 16.0.0 (推荐 20.x)
 - **pnpm**: >= 8.0.0
 - **Git**: >= 2.20.0
 
@@ -35,26 +38,18 @@ git --version
 
 ```bash
 git clone https://github.com/Bourne115/busy-cursor-rules.git
-cd cursor-rules-cli
+cd busy-cursor-rules
 ```
 
 ### 3. 安装依赖
 
 ```bash
-# 推荐使用 Makefile
-make install
-
-# 或直接使用 pnpm
 pnpm install
 ```
 
 ### 4. 设置 Git 钩子
 
 ```bash
-# 推荐使用 Makefile
-make setup-hooks
-
-# 或直接使用 pnpm
 pnpm run prepare
 ```
 
@@ -66,15 +61,20 @@ pnpm run prepare
 ### 5. 验证设置
 
 ```bash
-# 运行所有检查
-make check-all
+# 运行类型检查
+pnpm run type-check
 
-# 或分别运行
-make type-check  # TypeScript 类型检查
-make format-check # 代码格式检查
-make lint        # 代码质量检查
-make test        # 运行测试
-make build       # 构建项目
+# 代码格式检查
+pnpm run format:check
+
+# 代码质量检查
+pnpm run lint
+
+# 运行测试
+pnpm run test
+
+# 构建项目
+pnpm run build
 ```
 
 ## 🛠️ 开发工作流
@@ -83,9 +83,6 @@ make build       # 构建项目
 
 ```bash
 # 开发模式运行（推荐）
-make dev
-
-# 或使用 pnpm
 pnpm run dev
 ```
 
@@ -93,36 +90,36 @@ pnpm run dev
 
 ```bash
 # 运行所有测试
-make test
+pnpm run test
 
 # 观察模式（文件变化时自动运行）
-make test-watch
+pnpm run test:watch
 
 # 生成覆盖率报告
-make test-coverage
+pnpm run test:coverage
 ```
 
 ### 代码质量
 
 ```bash
 # 自动修复可修复的问题
-make lint-fix
+pnpm run lint:fix
 
 # 格式化代码
-make format
+pnpm run format
 
 # 检查代码格式
-make format-check
+pnpm run format:check
 
 # TypeScript 类型检查
-make type-check
+pnpm run type-check
 ```
 
 ### 提交代码
 
 ```bash
 # 规范化提交（推荐）
-make commit
+pnpm run commit
 
 # 或手动提交（需遵循 Conventional Commits 格式）
 git add .
@@ -187,17 +184,23 @@ git commit -m "test: add unit tests for core module"
 
 ## 🔄 发版流程
 
-### 开发者发版
+### 快速发版
 
 ```bash
 # 补丁版本 (1.0.0 -> 1.0.1)
-make release-patch
+pnpm run release:patch
+# 或使用脚本
+./scripts/quick-release.sh patch
 
 # 小版本 (1.0.0 -> 1.1.0)
-make release-minor
+pnpm run release:minor
+# 或使用脚本
+./scripts/quick-release.sh minor
 
 # 大版本 (1.0.0 -> 2.0.0)
-make release-major
+pnpm run release:major
+# 或使用脚本
+./scripts/quick-release.sh major
 ```
 
 发版脚本会自动：
@@ -248,75 +251,71 @@ pnpm test --testNamePattern="React"
 
 #### Q: 安装依赖失败？
 
+**A**: 确保你使用的是 pnpm：
+
 ```bash
-# 清理缓存重新安装
-make clean-all
-make install
+# 清理缓存
+pnpm store prune
+
+# 重新安装
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
 ```
 
 #### Q: Git 钩子不工作？
 
+**A**: 重新设置钩子：
+
 ```bash
-# 重新设置钩子
-make setup-hooks
+# 删除现有钩子
+rm -rf .git/hooks
+
+# 重新设置
+pnpm run prepare
 ```
 
-#### Q: 提交被拒绝？
+#### Q: ESLint 报错？
+
+**A**: 检查配置文件：
 
 ```bash
-# 检查提交信息格式
-make commit  # 使用交互式提交
+# 检查 ESLint 配置
+pnpm run lint
 
-# 或修复代码问题
-make lint-fix
-make format
+# 自动修复
+pnpm run lint:fix
 ```
 
-#### Q: 测试失败？
+#### Q: TypeScript 编译错误？
+
+**A**: 检查类型：
 
 ```bash
-# 查看详细错误信息
-make test-coverage
+# 运行类型检查
+pnpm run type-check
 
-# 观察模式调试
-make test-watch
+# 清理构建缓存
+rm -rf dist
+pnpm run build
 ```
 
 ### 获取帮助
 
-```bash
-# 查看所有可用命令
-make help
+- 📖 查看[工程化指南](./engineering.md)
+- 🐛 提交 [Issue](https://github.com/Bourne115/busy-cursor-rules/issues)
+- 💬 参与 [Discussions](https://github.com/Bourne115/busy-cursor-rules/discussions)
 
-# 或查看 pnpm 脚本
-pnpm run
-```
+## ✅ 开发检查清单
 
-## 📚 进阶指南
+开始贡献前，请确保：
 
-- [工程化指南](engineering.md) - 详细的工程化配置说明
-- [贡献指南](../CONTRIBUTING.md) - 贡献流程和规范
-- [架构文档](architecture.md) - 项目架构说明
-
-## 🤝 加入社区
-
-- [GitHub Discussions](https://github.com/Bourne115/busy-cursor-rules/discussions)
-- [Issues](https://github.com/Bourne115/busy-cursor-rules/issues)
-- [Wiki](https://github.com/Bourne115/busy-cursor-rules/wiki)
+- [ ] `pnpm run dev` - 开发模式运行
+- [ ] `pnpm run test` - 测试通过
+- [ ] `pnpm run lint` - 代码检查通过
+- [ ] `pnpm run format:check` - 代码格式化正常
+- [ ] `pnpm run build` - 构建成功
+- [ ] `pnpm run commit` - 规范化提交工具可用
 
 ---
 
-## ✅ 检查清单
-
-完成设置后，确保以下项目都能正常工作：
-
-- [ ] `make dev` - 开发模式运行
-- [ ] `make test` - 测试通过
-- [ ] `make lint` - 代码检查通过
-- [ ] `make format` - 代码格式化正常
-- [ ] `make build` - 构建成功
-- [ ] `make commit` - 规范化提交工具可用
-
-如果所有项目都✅，恭喜你！开发环境已配置完成。
-
-现在你可以开始贡献代码了！🎉
+🎉 **欢迎加入 Cursor Rules CLI 开发！** 让我们一起打造更好的 AI 协作开发体验。

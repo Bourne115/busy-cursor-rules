@@ -1,0 +1,297 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# TypeScript 开发规范
+
+## 类型系统配置
+
+### TypeScript 严格模式
+项目启用了严格模式，配置在 [tsconfig.json](mdc:tsconfig.json)：
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}
+```
+
+### 核心类型定义
+主要类型定义在 [src/types/index.ts](mdc:src/types/index.ts)：
+
+```typescript
+// CLI 命令选项
+interface InitOptions {
+  template?: TemplateType;
+  force?: boolean;
+  interactive?: boolean;
+}
+
+// 规则模板定义
+interface RuleTemplate {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  category: 'basic' | 'module' | 'workflow';
+  tags: string[];
+  author: string;
+  files: RuleFile[];
+  dependencies?: string[];
+  config?: TemplateConfig;
+}
+
+// 项目检测结果
+interface ProjectInfo {
+  type: ProjectType;
+  framework?: string;
+  language: string;
+  packageManager: 'npm' | 'yarn' | 'pnpm';
+  dependencies: string[];
+  devDependencies: string[];
+  hasTypeScript: boolean;
+  hasTests: boolean;
+}
+```
+
+## 类型定义原则
+
+### 接口 vs 类型别名
+- 优先使用 `interface` 定义对象类型
+- 使用 `type` 定义联合类型、函数类型和复杂类型变换
+- 接口名使用 PascalCase
+- 类型别名使用 PascalCase
+
+```typescript
+// 接口定义 - 对象结构
+interface TemplateProcessor {
+  process(template: RuleTemplate): Promise<ProcessResult>;
+  validate(template: RuleTemplate): ValidationResult;
+}
+
+// 类型别名 - 联合类型
+type ProjectType = 'react' | 'vue' | 'node' | 'express' | 'nestjs' | 'next';
+type TemplateCategory = 'basic' | 'module' | 'workflow';
+
+// 类型别名 - 函数类型
+type DetectorFunction = (projectPath: string) => Promise<ProjectInfo>;
+```
+
+### 类型安全最佳实践
+- 避免使用 `any`，使用 `unknown` 或创建具体类型
+- 为所有函数参数、返回值明确指定类型
+- 使用可选属性 `?` 而不是 `| undefined`
+- 适当使用 `readonly` 修饰符保护数据
+
+```typescript
+// 好的做法
+interface Config {
+  readonly templates: readonly string[];
+  autoUpdate: boolean;
+  registryUrl?: string; // 可选属性
+}
+
+function processConfig(config: Config): ProcessResult {
+  // 明确的类型定义
+}
+
+// 避免的做法
+function processConfig(config: any): any {
+  // 失去了类型安全性
+}
+```
+
+## 泛型和高级类型
+
+### 泛型使用规范
+- 泛型参数使用描述性名称，不仅仅是 T, U, V
+- 使用泛型约束限制类型范围
+- 为通用函数和类使用泛型提高复用性
+
+```typescript
+// 描述性泛型参数名
+interface TemplateProcessor<TTemplate extends RuleTemplate> {
+  process(template: TTemplate): Promise<ProcessResult<TTemplate>>;
+}
+
+// 泛型约束
+function validateTemplate<T extends RuleTemplate>(
+  template: T,
+  schema: TemplateSchema
+): ValidationResult<T> {
+  // 实现
+}
+
+// 条件类型
+type ExtractTemplateType<T> = T extends RuleTemplate
+  ? T['category']
+  : never;
+```
+
+### 实用类型应用
+```typescript
+// Pick 选择部分属性
+type TemplateMetadata = Pick<RuleTemplate, 'id' | 'name' | 'version'>;
+
+// Omit 排除部分属性
+type CreateTemplateData = Omit<RuleTemplate, 'id' | 'version'>;
+
+// Partial 可选属性
+type TemplateUpdate = Partial<RuleTemplate>;
+
+// Record 键值对类型
+type TemplateRegistry = Record<string, RuleTemplate>;
+```
+
+## 类型守卫和断言
+
+### 类型守卫函数
+在 [src/utils/type-guards.ts](mdc:src/utils/type-guards.ts) 中定义：
+
+```typescript
+// 类型守卫函数
+function isRuleTemplate(obj: unknown): obj is RuleTemplate {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'id' in obj &&
+    'name' in obj &&
+    'version' in obj &&
+    'category' in obj
+  );
+}
+
+function isProjectInfo(obj: unknown): obj is ProjectInfo {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'type' in obj &&
+    'language' in obj &&
+    'packageManager' in obj
+  );
+}
+
+// 使用类型守卫
+if (isRuleTemplate(data)) {
+  // TypeScript 现在知道 data 是 RuleTemplate 类型
+  console.log(data.id);
+}
+```
+
+### 类型断言使用
+- 只在确定类型时使用类型断言
+- 优先使用类型守卫而不是类型断言
+- 使用 `as const` 断言字面量类型
+
+```typescript
+// 谨慎使用断言
+const config = JSON.parse(configString) as Config;
+
+// 更好的方式 - 使用类型守卫
+const parseConfig = (str: string): Config | null => {
+  try {
+    const parsed = JSON.parse(str);
+    return isValidConfig(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+// const 断言
+const TEMPLATE_CATEGORIES = ['basic', 'module', 'workflow'] as const;
+type TemplateCategory = typeof TEMPLATE_CATEGORIES[number];
+```
+
+## 模块和命名空间
+
+### 模块导入导出
+- 使用 ES6 模块语法，避免 CommonJS
+- 明确区分 type 和 value 导入
+- 使用路径别名 `@/` 简化导入路径
+
+```typescript
+// 类型导入
+import type { RuleTemplate, ProjectInfo, InitOptions } from '@/types/index';
+
+// 值导入
+import { getTemplate, validateTemplate } from '@/templates/index';
+import { detectProject } from '@/core/detector';
+
+// 混合导入
+import { initCommand, type InitCommandOptions } from '@/commands/init';
+```
+
+### 避免循环依赖
+- 合理组织模块结构
+- 使用依赖注入解决循环依赖
+- 将共享类型定义提取到独立模块
+
+## 异步类型处理
+
+### Promise 类型定义
+```typescript
+// 异步操作结果类型
+type TemplateProcessResult =
+  | { success: true; template: RuleTemplate; files: string[] }
+  | { success: false; error: ProcessError };
+
+async function processTemplate(
+  templateId: string
+): Promise<TemplateProcessResult> {
+  try {
+    const template = await getTemplate(templateId);
+    const files = await generateFiles(template);
+    return { success: true, template, files };
+  } catch (error) {
+    return { success: false, error: error as ProcessError };
+  }
+}
+```
+
+### 错误类型处理
+```typescript
+// 自定义错误类型
+class TemplateNotFoundError extends Error {
+  constructor(templateId: string) {
+    super(`Template not found: ${templateId}`);
+    this.name = 'TemplateNotFoundError';
+  }
+}
+
+// 错误处理函数类型
+type ErrorHandler<T> = (error: Error) => T | never;
+
+// 结果包装类型
+type Result<T, E = Error> =
+  | { success: true; data: T }
+  | { success: false; error: E };
+```
+
+## 配置和环境类型
+
+### 环境变量类型
+```typescript
+// 环境变量接口
+interface EnvironmentConfig {
+  NODE_ENV: 'development' | 'production' | 'test';
+  LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
+  TEMPLATE_REGISTRY_URL?: string;
+}
+
+// 运行时环境验证
+function validateEnvironment(): EnvironmentConfig {
+  const config: EnvironmentConfig = {
+    NODE_ENV: process.env.NODE_ENV as any || 'development',
+    LOG_LEVEL: process.env.LOG_LEVEL as any,
+    TEMPLATE_REGISTRY_URL: process.env.TEMPLATE_REGISTRY_URL,
+  };
+
+  // 验证逻辑...
+  return config;
+}
+```

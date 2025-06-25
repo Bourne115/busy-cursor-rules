@@ -41,7 +41,7 @@
 
 ### 6. 便利工具
 
-- ✅ **Makefile** - 常用命令快捷方式
+- ✅ **发版脚本** - 一键发版工具
 - ✅ **快速开始指南** - 新手友好的设置指南
 - ✅ **工程化文档** - 详细的工程化说明
 
@@ -59,7 +59,7 @@ commitlint.config.cjs     # commitlint 配置
 
 ```
 scripts/
-└── release.sh           # 自动化发版脚本
+└── quick-release.sh     # 快速发版脚本
 ```
 
 ### VSCode 配置
@@ -88,12 +88,6 @@ docs/
 ├── engineering.md       # 工程化指南
 ├── quick-start.md       # 快速开始指南
 └── engineering-summary.md # 功能总结
-```
-
-### 便利工具
-
-```
-Makefile                 # 命令快捷方式
 ```
 
 ## 🔧 修改的文件
@@ -145,45 +139,48 @@ Makefile                 # 命令快捷方式
 
 ```bash
 # 1. 设置开发环境
-make setup
+git clone https://github.com/Bourne115/busy-cursor-rules.git
+cd busy-cursor-rules
+pnpm install
+pnpm run prepare
 
 # 2. 开发代码
-make dev
+pnpm run dev
 
 # 3. 提交代码
-make commit
+pnpm run commit
 
 # 4. 发布版本
-make release-patch  # 或 release-minor/release-major
+pnpm run release:patch  # 或 release:minor/major
 ```
 
 ### 代码质量管理
 
 ```bash
 # 格式化代码
-make format
+pnpm run format
 
 # 代码检查
-make lint
+pnpm run lint
 
 # 修复问题
-make lint-fix
+pnpm run lint:fix
 
 # 类型检查
-make type-check
+pnpm run type-check
 
 # 运行测试
-make test
+pnpm test
 
-# 一键检查
-make check-all
+# 一键检查（运行多个检查）
+pnpm run type-check && pnpm run lint && pnpm run format:check && pnpm test
 ```
 
 ### Git 工作流
 
 ```bash
 # 规范化提交（推荐）
-make commit
+pnpm run commit
 
 # 手动提交（需遵循规范）
 git commit -m "feat: add new feature"
@@ -249,13 +246,35 @@ git commit -m "docs: update readme"
 - 🚀 **自动发布** - 推送标签自动发布到 npm
 - 📢 **发布通知** - GitHub Release 自动创建
 
-## 📚 相关资源
+## 📦 项目信息
 
-- [工程化指南](engineering.md) - 详细配置说明
-- [快速开始指南](quick-start.md) - 新手设置指南
-- [Conventional Commits](https://www.conventionalcommits.org/) - 提交规范
-- [semantic-release](https://semantic-release.gitbook.io/) - 语义化发版
-- [GitHub Actions](https://docs.github.com/actions) - CI/CD 文档
+### 包信息
+
+- **包名**: `@qile-c/cursor-rules-cli`
+- **版本**: `1.0.0`
+- **仓库**: https://github.com/Bourne115/busy-cursor-rules
+- **npm**: https://www.npmjs.com/package/@qile-c/cursor-rules-cli
+
+### 安装使用
+
+```bash
+# 全局安装
+npm install -g @qile-c/cursor-rules-cli
+
+# 使用
+cursor-rules init
+```
+
+### 技术栈
+
+- **语言**: TypeScript
+- **运行时**: Node.js >= 16.0.0
+- **包管理**: pnpm
+- **构建工具**: tsup
+- **测试框架**: Jest
+- **代码质量**: ESLint + Prettier
+- **提交规范**: Conventional Commits
+- **CI/CD**: GitHub Actions
 
 ---
 

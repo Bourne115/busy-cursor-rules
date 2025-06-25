@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 此项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.0.0] - 2024-12-XX
+## [1.0.0] - 2025-06-25
 
 ### 新增
 - ✨ 项目初始化功能 (`cursor-rules init`)
@@ -36,4 +36,4 @@
 - 🌐 在线规则市场
 - 🤝 团队协作功能
 - 🔌 CI/CD 集成
-- 📊 使用统计和分析 
+- 📊 使用统计和分析

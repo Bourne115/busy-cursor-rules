@@ -163,12 +163,18 @@ describe('Template Generator', () => {
 ```bash
 # 补丁版本 (1.0.0 -> 1.0.1)
 pnpm run release:patch
+# 或
+./scripts/quick-release.sh patch
 
 # 小版本 (1.0.0 -> 1.1.0)
 pnpm run release:minor
+# 或
+./scripts/quick-release.sh minor
 
 # 大版本 (1.0.0 -> 2.0.0)
 pnpm run release:major
+# 或
+./scripts/quick-release.sh major
 ```
 
 ### 手动发版
@@ -248,113 +254,143 @@ pnpm run release:major
 1. **构建和测试** - 完整的CI流程
 2. **发布到npm** - 自动发布包到npm registry
 3. **创建GitHub Release** - 自动创建GitHub发布页面
-4. **发布通知** - 在控制台输出发布信息
 
-### GitHub Actions配置
+### GitHub Actions 配置
 
-- `.github/workflows/ci.yml` - CI工作流
-- `.github/workflows/release.yml` - 发布工作流
+项目包含两个主要的工作流：
+
+- **`.github/workflows/ci.yml`** - 持续集成
+- **`.github/workflows/release.yml`** - 自动发布
 
 ## 开发工具
 
-### VSCode任务
+### VSCode 配置
 
-按 `Ctrl+Shift+P` (或 `Cmd+Shift+P`)，输入 `Tasks: Run Task`，可以选择以下任务：
+项目已预配置VSCode开发环境：
 
-- 📦 构建项目
-- 🧪 运行测试
-- 🧪 运行测试(观察模式)
-- 🔍 代码检查
-- 🔧 修复代码问题
-- 💅 格式化代码
-- 🔍 类型检查
-- 🚀 开发模式
-- 📝 生成CHANGELOG
-- 📋 规范化提交
-- 🏷️ 发版(补丁/小版本/大版本)
+- **设置文件** - `.vscode/settings.json`
+- **任务配置** - `.vscode/tasks.json`
+- **调试配置** - `.vscode/launch.json`
+- **扩展推荐** - `.vscode/extensions.json`
 
-### 推荐的VSCode扩展
+### 代码质量工具
 
 - **ESLint** - 代码质量检查
 - **Prettier** - 代码格式化
-- **TypeScript Importer** - 自动导入
-- **GitLens** - Git增强工具
-- **Conventional Commits** - 提交信息辅助
+- **TypeScript** - 类型检查
+- **Jest** - 单元测试框架
 
-### 开发环境设置
+### Git 工具
 
-1. **克隆仓库**
+- **simple-git-hooks** - Git钩子管理
+- **lint-staged** - 预提交检查
+- **commitlint** - 提交信息验证
+- **commitizen** - 交互式提交
+
+### 构建工具
+
+- **tsup** - TypeScript构建工具
+- **tsx** - TypeScript执行器
+- **conventional-changelog** - 更新日志生成
+
+## 常用命令速查
+
+### 开发命令
+
+```bash
+# 开发模式
+pnpm run dev
+
+# 构建项目
+pnpm run build
+
+# 清理构建产物
+pnpm run clean
+```
+
+### 代码质量
+
+```bash
+# 类型检查
+pnpm run type-check
+
+# 代码检查
+pnpm run lint
+
+# 自动修复
+pnpm run lint:fix
+
+# 格式化代码
+pnpm run format
+
+# 检查格式
+pnpm run format:check
+```
+
+### 测试命令
+
+```bash
+# 运行测试
+pnpm test
+
+# 观察模式
+pnpm run test:watch
+
+# 覆盖率报告
+pnpm run test:coverage
+```
+
+### 版本管理
+
+```bash
+# 规范化提交
+pnpm run commit
+
+# 生成更新日志
+pnpm run changelog
+
+# 发布版本
+pnpm run release:patch
+pnpm run release:minor
+pnpm run release:major
+```
+
+### Git 钩子
+
+```bash
+# 设置钩子
+pnpm run prepare
+```
+
+## 故障排除
+
+### 常见问题
+
+1. **钩子不工作**
 
    ```bash
-   git clone <repository-url>
-   cd cursor-rules-cli
-   ```
-
-2. **安装依赖**
-
-   ```bash
-   pnpm install
-   ```
-
-3. **设置Git钩子**
-
-   ```bash
+   rm -rf .git/hooks
    pnpm run prepare
    ```
 
-4. **开始开发**
+2. **依赖安装失败**
+
    ```bash
-   pnpm run dev
+   rm -rf node_modules pnpm-lock.yaml
+   pnpm install
    ```
 
-### 调试配置
+3. **TypeScript 错误**
 
-项目包含VSCode调试配置，可以直接在IDE中调试：
+   ```bash
+   pnpm run type-check
+   ```
 
-1. 按 `F5` 启动调试
-2. 在断点处停止
-3. 使用调试控制台查看变量
+4. **ESLint 错误**
+   ```bash
+   pnpm run lint:fix
+   ```
 
-## 常见问题
+---
 
-### Q: 提交被拒绝，提示提交信息格式错误？
-
-A: 请确保提交信息遵循Conventional Commits格式，或使用 `pnpm run commit` 进行交互式提交。
-
-### Q: 预提交检查失败？
-
-A: 运行以下命令修复问题：
-
-```bash
-pnpm run lint:fix
-pnpm run format
-```
-
-### Q: 如何跳过Git钩子？
-
-A: 在特殊情况下可以跳过：
-
-```bash
-git commit --no-verify -m "your message"
-```
-
-但不建议经常使用。
-
-### Q: 发版脚本执行失败？
-
-A: 检查以下几点：
-
-1. 是否在主分支
-2. 工作区是否干净
-3. 是否有足够的权限
-4. 网络连接是否正常
-
-## 最佳实践
-
-1. **频繁提交** - 保持小而频繁的提交
-2. **描述性提交信息** - 清楚说明更改内容
-3. **测试驱动开发** - 先写测试，再写代码
-4. **代码审查** - 通过Pull Request进行代码审查
-5. **文档更新** - 及时更新相关文档
-6. **依赖管理** - 定期更新和审计依赖包
-7. **性能监控** - 关注构建时间和包大小
+📚 **更多信息**：查看[快速开始指南](./quick-start.md)了解详细的设置步骤。

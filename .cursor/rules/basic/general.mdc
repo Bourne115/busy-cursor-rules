@@ -1,0 +1,122 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# 通用编程基础规范
+
+## 项目概述
+
+这是一个用于生成和管理 Cursor IDE AI 协作规范的 CLI 工具项目。主要技术栈：
+- **语言**: TypeScript (ES2022)
+- **运行时**: Node.js >= 20.0.0
+- **包管理**: pnpm >= 9.0.0 (严格要求)
+- **构建工具**: tsup
+- **测试框架**: Jest
+
+## 项目结构
+
+主要文件和目录：
+- 主入口: [src/cli.ts](mdc:src/cli.ts) - CLI 命令注册和配置
+- 命令实现: [src/commands/](mdc:src/commands) - 各个命令的具体实现
+- 核心逻辑: [src/core/](mdc:src/core) - 项目检测、模板生成等核心功能
+- 类型定义: [src/types/index.ts](mdc:src/types/index.ts) - 完整的 TypeScript 类型定义
+- 模板系统: [src/templates/index.ts](mdc:src/templates/index.ts) - 内置规则模板
+- 工具函数: [src/utils/](mdc:src/utils) - 通用工具和辅助函数
+- 配置文件: [package.json](mdc:package.json), [tsconfig.json](mdc:tsconfig.json)
+
+## 代码风格与规范
+
+### 命名规范
+- 使用有意义的变量和函数命名，避免缩写和模糊的名称
+- 类名使用 PascalCase: `RuleTemplate`, `ProjectDetector`
+- 函数和变量使用 camelCase: `getTemplate`, `projectInfo`
+- 常量使用 UPPER_SNAKE_CASE: `DEFAULT_CONFIG`, `MAX_RETRIES`
+- 文件名使用 kebab-case: `project-detector.ts`, `rule-template.ts`
+
+### 模块导入导出
+```typescript
+// 使用路径别名 @/ 指向 src/
+import type { RuleTemplate, ProjectInfo } from '@/types/index';
+import { getTemplate } from '@/templates/index';
+import { detectProject } from '@/core/detector';
+
+// 明确区分 type 和 value 导入
+import type { InitOptions } from '@/types/index';
+import { initCommand } from '@/commands/init';
+```
+
+### 代码组织
+- 每个文件应有单一职责，避免超大文件
+- 函数应该单一职责，建议不超过50行
+- 参数不宜过多，超过3个参数考虑使用配置对象
+- 使用有意义的注释说明复杂逻辑和业务规则
+
+### 代码质量
+- 保持代码简洁和可读性
+- 避免深层嵌套，使用早期返回(early return)
+- 使用 const 声明不变的变量，避免使用 var
+- 优先使用函数式编程方法: map, filter, reduce
+
+## 错误处理
+
+### 错误分类和处理
+```typescript
+// 用户错误 - 输入或使用错误
+class UserError extends Error {
+  constructor(message: string, public suggestions?: string[]) {
+    super(message);
+    this.name = 'UserError';
+  }
+}
+
+// 系统错误 - 程序或环境问题
+class SystemError extends Error {
+  constructor(message: string, public cause?: Error) {
+    super(message);
+    this.name = 'SystemError';
+  }
+}
+```
+
+### 错误信息规范
+- 使用具体的错误信息，便于调试和用户理解
+- 区分用户错误和系统错误，提供不同的处理方式
+- 避免空的 catch 块，至少要记录错误信息
+- 为用户错误提供解决建议
+
+## 性能与优化
+
+### 性能考虑
+- 避免不必要的计算和内存分配
+- 合理使用缓存机制
+- 注意避免内存泄漏，及时清理事件监听器
+- 使用 async/await 处理异步操作，避免回调地狱
+
+### 数据处理
+- 处理大量数据时考虑使用流(Stream)
+- 避免同步的文件操作，使用异步版本
+- 合理使用数据结构，Set 用于去重，Map 用于键值映射
+
+## 代码注释与文档
+
+### JSDoc 注释规范
+```typescript
+/**
+ * 检测项目类型并生成推荐的规则配置
+ * @param projectPath 项目根目录路径
+ * @param options 检测选项
+ * @returns 项目信息和推荐的模板列表
+ */
+export async function detectProject(
+  projectPath: string,
+  options: DetectOptions = {}
+): Promise<ProjectDetectionResult> {
+  // 实现逻辑...
+}
+```
+
+### 注释最佳实践
+- 解释"为什么"而不仅仅是"是什么"
+- 复杂算法和业务逻辑必须添加说明注释
+- 保持注释与代码的同步更新

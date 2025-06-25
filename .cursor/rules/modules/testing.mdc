@@ -1,0 +1,572 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# 测试开发规范
+
+## 测试框架配置
+
+### Jest 测试环境
+项目使用 Jest 作为测试框架，配置在 [package.json](mdc:package.json) 和 [jest.config.js](mdc:jest.config.js)：
+
+```json
+{
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false"
+  }
+}
+```
+
+### 测试文件组织
+- 测试文件位置：`src/**/*.test.ts` 或 `src/__tests__/**/*.ts`
+- 集成测试：`tests/` 目录
+- 测试工具：`src/test-utils/` 目录
+- Mock 文件：`src/__mocks__/` 目录
+
+## 测试结构与组织
+
+### 测试文件命名规范
+```
+src/
+├── commands/
+│   ├── init.ts
+│   └── init.test.ts          # 单元测试
+├── core/
+│   ├── detector.ts
+│   └── detector.test.ts      # 单元测试
+├── __tests__/
+│   ├── integration/          # 集成测试
+│   │   └── cli.test.ts
+│   └── e2e/                  # 端到端测试
+│       └── full-workflow.test.ts
+└── test-utils/               # 测试工具
+    ├── fixtures.ts
+    ├── helpers.ts
+    └── mocks.ts
+```
+
+### 测试用例结构
+```typescript
+// 标准测试结构
+describe('ModuleName', () => {
+  // 设置和清理
+  beforeEach(async () => {
+    // 每个测试前的准备工作
+  });
+
+  afterEach(async () => {
+    // 每个测试后的清理工作
+  });
+
+  // 功能分组
+  describe('functionName', () => {
+    // 正常情况测试
+    it('should return expected result when valid input provided', async () => {
+      // Given (准备)
+      const input = createTestInput();
+
+      // When (执行)
+      const result = await functionName(input);
+
+      // Then (验证)
+      expect(result).toEqual(expectedResult);
+    });
+
+    // 边界情况测试
+    it('should handle empty input gracefully', async () => {
+      const result = await functionName('');
+      expect(result).toBeNull();
+    });
+
+    // 异常情况测试
+    it('should throw error when invalid input provided', async () => {
+      await expect(functionName('invalid'))
+        .rejects.toThrow('Expected error message');
+    });
+  });
+});
+```
+
+## 单元测试规范
+
+### CLI 命令测试
+测试 [src/commands/init.ts](mdc:src/commands/init.ts) 等命令模块：
+
+```typescript
+// src/commands/__tests__/init.test.ts
+import { initCommand } from '../init';
+import { detectProject } from '@/core/detector';
+import { applyTemplate } from '@/templates/index';
+import { testUtils } from '@/test-utils';
+
+// Mock 外部依赖
+jest.mock('@/core/detector');
+jest.mock('@/templates/index');
+
+const mockDetectProject = detectProject as jest.MockedFunction<typeof detectProject>;
+const mockApplyTemplate = applyTemplate as jest.MockedFunction<typeof applyTemplate>;
+
+describe('InitCommand', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await testUtils.createTempDir();
+    process.chdir(tempDir);
+
+    // 重置 mocks
+    jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await testUtils.cleanupTempDir(tempDir);
+  });
+
+  describe('with valid project', () => {
+    beforeEach(() => {
+      mockDetectProject.mockResolvedValue({
+        type: 'react',
+        hasTypeScript: true,
+        packageManager: 'pnpm',
+        language: 'typescript',
+        dependencies: ['react', '@types/react'],
+        devDependencies: ['typescript', 'jest'],
+        hasTests: true,
+      });
+    });
+
+    it('should initialize rules for react project', async () => {
+      const options = { template: 'react', force: false, interactive: false };
+
+      await initCommand([], options);
+
+      expect(mockDetectProject).toHaveBeenCalledWith(process.cwd());
+      expect(mockApplyTemplate).toHaveBeenCalledWith(
+        'react',
+        process.cwd(),
+        expect.objectContaining({ force: false })
+      );
+    });
+
+    it('should prompt for template when not specified', async () => {
+      // Mock inquirer prompts
+      const mockPrompt = jest.fn().mockResolvedValue({ template: 'react' });
+      jest.doMock('inquirer', () => ({ prompt: mockPrompt }));
+
+      const options = { interactive: true };
+      await initCommand([], options);
+
+      expect(mockPrompt).toHaveBeenCalled();
+    });
+  });
+
+  describe('with invalid options', () => {
+    it('should throw error for invalid template', async () => {
+      const options = { template: 'invalid-template' };
+
+      await expect(initCommand([], options))
+        .rejects.toThrow('无效的模板类型');
+    });
+  });
+});
+```
+
+### 核心逻辑测试
+测试 [src/core/detector.ts](mdc:src/core/detector.ts) 等核心模块：
+
+```typescript
+// src/core/__tests__/detector.test.ts
+import { detectProject } from '../detector';
+import { testUtils } from '@/test-utils';
+import * as fs from 'fs-extra';
+import * as path from 'path';
+
+describe('ProjectDetector', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await testUtils.createTempDir();
+  });
+
+  afterEach(async () => {
+    await testUtils.cleanupTempDir(tempDir);
+  });
+
+  describe('React project detection', () => {
+    it('should detect React project with TypeScript', async () => {
+      // 创建项目文件
+      await fs.writeJSON(path.join(tempDir, 'package.json'), {
+        dependencies: { react: '^18.0.0' },
+        devDependencies: { typescript: '^5.0.0', '@types/react': '^18.0.0' }
+      });
+
+      await fs.writeFile(path.join(tempDir, 'tsconfig.json'), '{}');
+
+      const result = await detectProject(tempDir);
+
+      expect(result).toEqual({
+        type: 'react',
+        framework: 'react',
+        language: 'typescript',
+        packageManager: 'npm', // 默认值
+        dependencies: ['react'],
+        devDependencies: ['typescript', '@types/react'],
+        hasTypeScript: true,
+        hasTests: false,
+      });
+    });
+
+    it('should detect package manager from lockfile', async () => {
+      await fs.writeJSON(path.join(tempDir, 'package.json'), {
+        dependencies: { react: '^18.0.0' }
+      });
+      await fs.writeFile(path.join(tempDir, 'pnpm-lock.yaml'), '');
+
+      const result = await detectProject(tempDir);
+
+      expect(result.packageManager).toBe('pnpm');
+    });
+  });
+
+  describe('error handling', () => {
+    it('should throw error for non-existent directory', async () => {
+      await expect(detectProject('/non/existent/path'))
+        .rejects.toThrow('项目目录不存在');
+    });
+
+    it('should throw error when no package.json found', async () => {
+      await expect(detectProject(tempDir))
+        .rejects.toThrow('未找到 package.json 文件');
+    });
+  });
+});
+```
+
+## 集成测试规范
+
+### CLI 集成测试
+```typescript
+// tests/integration/cli.test.ts
+import { execSync } from 'child_process';
+import { testUtils } from '@/test-utils';
+import * as fs from 'fs-extra';
+import * as path from 'path';
+
+describe('CLI Integration Tests', () => {
+  let tempDir: string;
+  const cliPath = path.resolve(__dirname, '../../dist/cli.js');
+
+  beforeEach(async () => {
+    tempDir = await testUtils.createTempDir();
+    process.chdir(tempDir);
+  });
+
+  afterEach(async () => {
+    await testUtils.cleanupTempDir(tempDir);
+  });
+
+  describe('init command', () => {
+    it('should initialize rules for React project', async () => {
+      // 创建 React 项目结构
+      await fs.writeJSON('package.json', {
+        dependencies: { react: '^18.0.0' }
+      });
+
+      // 执行 CLI 命令
+      const output = execSync(
+        `node ${cliPath} init --template=react --no-interactive`,
+        { encoding: 'utf8', cwd: tempDir }
+      );
+
+      // 验证输出
+      expect(output).toContain('✅ 规则初始化成功');
+
+      // 验证生成的文件
+      expect(await fs.pathExists('.cursor/rules/basic/general.mdc')).toBe(true);
+      expect(await fs.pathExists('.cursor/rules/modules/react.mdc')).toBe(true);
+
+      // 验证文件内容
+      const reactRules = await fs.readFile('.cursor/rules/modules/react.mdc', 'utf8');
+      expect(reactRules).toContain('React 开发规范');
+    });
+
+    it('should handle existing rules with force flag', async () => {
+      await fs.writeJSON('package.json', { dependencies: { react: '^18.0.0' } });
+      await fs.ensureDir('.cursor/rules');
+      await fs.writeFile('.cursor/rules/basic/general.mdc', 'existing content');
+
+      const output = execSync(
+        `node ${cliPath} init --template=react --force --no-interactive`,
+        { encoding: 'utf8', cwd: tempDir }
+      );
+
+      expect(output).toContain('✅ 规则初始化成功');
+
+      const content = await fs.readFile('.cursor/rules/basic/general.mdc', 'utf8');
+      expect(content).not.toBe('existing content');
+    });
+  });
+
+  describe('list command', () => {
+    it('should list available templates', async () => {
+      const output = execSync(`node ${cliPath} list`, {
+        encoding: 'utf8',
+        cwd: tempDir
+      });
+
+      expect(output).toContain('可用模板');
+      expect(output).toContain('react');
+      expect(output).toContain('typescript');
+    });
+  });
+});
+```
+
+## Mock 与测试工具
+
+### 文件系统 Mock
+```typescript
+// src/__mocks__/fs-extra.ts
+const actualFs = jest.requireActual('fs-extra');
+
+const mockFs = {
+  ...actualFs,
+  readJSON: jest.fn(),
+  writeJSON: jest.fn(),
+  readFile: jest.fn(),
+  writeFile: jest.fn(),
+  pathExists: jest.fn(),
+  ensureDir: jest.fn(),
+  copy: jest.fn(),
+  remove: jest.fn(),
+};
+
+export = mockFs;
+```
+
+### 测试工具函数
+在 [src/test-utils/index.ts](mdc:src/test-utils/index.ts) 中定义：
+
+```typescript
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import * as os from 'os';
+import type { RuleTemplate, ProjectInfo } from '@/types';
+
+export const testUtils = {
+  // 创建测试模板
+  createTestTemplate: (overrides: Partial<RuleTemplate> = {}): RuleTemplate => ({
+    id: 'test-template',
+    name: 'Test Template',
+    description: 'A test template',
+    version: '1.0.0',
+    category: 'basic',
+    tags: ['test'],
+    author: 'Test Author',
+    files: [],
+    ...overrides,
+  }),
+
+  // 创建测试项目信息
+  createTestProjectInfo: (overrides: Partial<ProjectInfo> = {}): ProjectInfo => ({
+    type: 'react',
+    language: 'typescript',
+    packageManager: 'pnpm',
+    dependencies: ['react'],
+    devDependencies: ['typescript'],
+    hasTypeScript: true,
+    hasTests: false,
+    ...overrides,
+  }),
+
+  // 创建临时目录
+  createTempDir: async (): Promise<string> => {
+    return await fs.mkdtemp(path.join(os.tmpdir(), 'cursor-rules-test-'));
+  },
+
+  // 清理临时目录
+  cleanupTempDir: async (dir: string): Promise<void> => {
+    await fs.remove(dir);
+  },
+
+  // 创建测试项目结构
+  createTestProject: async (
+    dir: string,
+    projectType: 'react' | 'vue' | 'node' = 'react'
+  ): Promise<void> => {
+    const packageJson = {
+      react: {
+        dependencies: { react: '^18.0.0' },
+        devDependencies: { typescript: '^5.0.0' }
+      },
+      vue: {
+        dependencies: { vue: '^3.0.0' },
+        devDependencies: { typescript: '^5.0.0' }
+      },
+      node: {
+        dependencies: { express: '^4.18.0' },
+        devDependencies: { '@types/node': '^20.0.0' }
+      }
+    };
+
+    await fs.writeJSON(path.join(dir, 'package.json'), packageJson[projectType]);
+
+    if (projectType !== 'node') {
+      await fs.writeFile(path.join(dir, 'tsconfig.json'), '{}');
+    }
+  },
+
+  // 验证规则文件
+  verifyRuleFiles: async (
+    baseDir: string,
+    expectedFiles: string[]
+  ): Promise<void> => {
+    for (const file of expectedFiles) {
+      const filePath = path.join(baseDir, '.cursor', 'rules', file);
+      const exists = await fs.pathExists(filePath);
+
+      if (!exists) {
+        throw new Error(`Expected rule file not found: ${file}`);
+      }
+
+      const content = await fs.readFile(filePath, 'utf8');
+      if (content.trim() === '') {
+        throw new Error(`Rule file is empty: ${file}`);
+      }
+    }
+  },
+};
+```
+
+## 异步测试处理
+
+### Promise 测试
+```typescript
+describe('Async Operations', () => {
+  it('should resolve with template data', async () => {
+    const template = await getTemplate('react');
+
+    expect(template).toBeDefined();
+    expect(template.id).toBe('react');
+    expect(template.name).toBe('React 开发规范');
+  });
+
+  it('should reject when template not found', async () => {
+    await expect(getTemplate('nonexistent'))
+      .rejects.toThrow('Template not found: nonexistent');
+  });
+
+  it('should handle timeout', async () => {
+    jest.setTimeout(10000);
+
+    const slowOperation = () => new Promise(resolve =>
+      setTimeout(resolve, 5000)
+    );
+
+    await expect(slowOperation()).resolves.toBeUndefined();
+  }, 10000);
+});
+```
+
+### 并发测试
+```typescript
+describe('Concurrent Operations', () => {
+  it('should handle multiple template processing', async () => {
+    const templateIds = ['react', 'typescript', 'testing'];
+
+    const results = await Promise.allSettled(
+      templateIds.map(id => processTemplate(id))
+    );
+
+    // 验证所有操作都成功
+    results.forEach((result, index) => {
+      expect(result.status).toBe('fulfilled');
+      if (result.status === 'fulfilled') {
+        expect(result.value.templateId).toBe(templateIds[index]);
+      }
+    });
+  });
+});
+```
+
+## 测试覆盖率和质量
+
+### 覆盖率配置
+```json
+// jest.config.js
+{
+  "collectCoverageFrom": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "!src/**/*.d.ts",
+    "!src/test-utils/**/*"
+  ],
+  "coverageThreshold": {
+    "global": {
+      "branches": 80,
+      "functions": 80,
+      "lines": 80,
+      "statements": 80
+    }
+  }
+}
+```
+
+### 测试质量检查
+```bash
+# 运行测试套件
+pnpm test
+
+# 生成覆盖率报告
+pnpm test:coverage
+
+# 监视模式开发
+pnpm test:watch
+
+# CI 模式运行
+pnpm test:ci
+```
+
+### 性能测试
+```typescript
+describe('Performance Tests', () => {
+  it('should process large template within time limit', async () => {
+    const startTime = Date.now();
+
+    const largeTemplate = testUtils.createTestTemplate({
+      files: Array(100).fill(0).map((_, i) => ({
+        path: `rule-${i}.mdc`,
+        content: 'test content'.repeat(1000)
+      }))
+    });
+
+    await processTemplate(largeTemplate);
+
+    const duration = Date.now() - startTime;
+    expect(duration).toBeLessThan(2000); // 2秒内完成
+  });
+
+  it('should handle memory efficiently', async () => {
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    // 处理大量数据
+    for (let i = 0; i < 100; i++) {
+      await processTemplate(testUtils.createTestTemplate({ id: `test-${i}` }));
+    }
+
+    // 强制垃圾回收
+    if (global.gc) {
+      global.gc();
+    }
+
+    const finalMemory = process.memoryUsage().heapUsed;
+    const memoryIncrease = finalMemory - initialMemory;
+
+    // 内存增长不应超过 50MB
+    expect(memoryIncrease).toBeLessThan(50 * 1024 * 1024);
+  });
+});
+```
