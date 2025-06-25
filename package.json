@@ -109,5 +109,9 @@
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

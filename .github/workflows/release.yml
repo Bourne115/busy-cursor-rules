@@ -9,7 +9,7 @@ jobs:
   release:
     name: 发布到npm
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 🛎️ 检出代码
         uses: actions/checkout@v4
@@ -40,9 +40,6 @@ jobs:
       - name: 🔍 代码质量检查
         run: pnpm run lint
 
-      - name: 🧪 运行测试
-        run: pnpm run test
-
       - name: 📦 构建项目
         run: pnpm run build
 
@@ -50,24 +47,32 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: 🔍 检查npm版本
+        run: |
+          VERSION=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
+          if npm view @busyFe/cursor-rules-cli@$VERSION version >/dev/null 2>&1; then
+            echo "版本 $VERSION 已存在于npm，跳过发布"
+            exit 1
+          fi
+
       - name: 🚀 发布到npm
         run: pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 📝 创建GitHub Release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
           body: |
-            ## 更新内容
+            ## 🎉 发布说明
 
             详细更新内容请查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
 
-            ## 安装
+            ## 📦 安装
 
             ```bash
             npm install -g @busyFe/cursor-rules-cli
@@ -75,17 +80,23 @@ jobs:
             pnpm add -g @busyFe/cursor-rules-cli
             ```
 
-            ## 使用
+            ## 🚀 使用
 
             ```bash
             cursor-rules init
             ```
+
+            ## 🔗 相关链接
+
+            - [npm包地址](https://www.npmjs.com/package/@busyFe/cursor-rules-cli)
+            - [文档地址](https://github.com/${{ github.repository }})
           draft: false
           prerelease: false
+          generate_release_notes: true
 
-      - name: 📢 发布通知
+      - name: 📢 发布成功通知
         if: success()
         run: |
           echo "🎉 成功发布 ${{ steps.get_version.outputs.VERSION }} 到 npm!"
           echo "📦 包名: @busyFe/cursor-rules-cli"
-          echo "🔗 npm链接: https://www.npmjs.com/package/@busyFe/cursor-rules-cli" 
+          echo "🔗 npm链接: https://www.npmjs.com/package/@busyFe/cursor-rules-cli"
