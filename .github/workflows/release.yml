@@ -67,9 +67,9 @@ jobs:
             ## 📦 安装
 
             ```bash
-            npm install -g @busyfe/cursor-rules-cli
+            npm install -g @qile-c/cursor-rules-cli
             # 或
-            pnpm add -g @busyfe/cursor-rules-cli
+            pnpm add -g @qile-c/cursor-rules-cli
             ```
 
             ## 🚀 使用
@@ -80,7 +80,7 @@ jobs:
 
             ## 🔗 相关链接
 
-            - [npm包地址](https://www.npmjs.com/package/@busyfe/cursor-rules-cli)
+            - [npm包地址](https://www.npmjs.com/package/@qile-c/cursor-rules-cli)
             - [文档地址](https://github.com/${{ github.repository }})
           draft: false
           prerelease: false
@@ -90,5 +90,5 @@ jobs:
         if: success()
         run: |
           echo "🎉 成功发布 ${{ steps.get_version.outputs.VERSION }} 到 npm!"
-          echo "📦 包名: @busyfe/cursor-rules-cli"
-          echo "🔗 npm链接: https://www.npmjs.com/package/@busyfe/cursor-rules-cli"
+          echo "📦 包名: @qile-c/cursor-rules-cli"
+          echo "🔗 npm链接: https://www.npmjs.com/package/@qile-c/cursor-rules-cli"
