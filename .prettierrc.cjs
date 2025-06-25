@@ -19,10 +19,10 @@ module.exports = {
   endOfLine: 'lf',
   // JSX中单引号
   jsxSingleQuote: true,
-  // JSX标签的>符号换行
-  jsxBracketSameLine: false,
+  // 标签的>符号换行（修复：jsxBracketSameLine 已废弃）
+  bracketSameLine: false,
   // HTML空格敏感性
   htmlWhitespaceSensitivity: 'css',
   // Vue文件中的script和style标签缩进
-  vueIndentScriptAndStyle: false
-}; 
+  vueIndentScriptAndStyle: false,
+};

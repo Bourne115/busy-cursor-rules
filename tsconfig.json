@@ -16,18 +16,12 @@
     "removeComments": true,
     "typeRoots": ["node_modules/@types"],
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"]
     }
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts"
-  ]
-} 
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

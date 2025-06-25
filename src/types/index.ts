@@ -41,7 +41,7 @@ export interface ProjectInfo {
 }
 
 // 项目类型
-export type ProjectType = 
+export type ProjectType =
   | 'react'
   | 'vue'
   | 'angular'
@@ -101,4 +101,4 @@ export interface MarketplaceRule extends RuleTemplate {
   rating: number;
   reviews: number;
   lastUpdated: string;
-} 
+}

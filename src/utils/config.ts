@@ -12,7 +12,7 @@ const DEFAULT_CONFIG: GlobalConfig = {
   autoUpdate: true,
   language: 'en',
   registryUrl: 'https://api.cursor-rules.com',
-  customTemplatePath: undefined
+  customTemplatePath: undefined,
 };
 
 /**
@@ -27,14 +27,16 @@ export async function getGlobalConfig(): Promise<GlobalConfig> {
   } catch (error) {
     console.warn('Failed to read config file, using defaults');
   }
-  
+
   return DEFAULT_CONFIG;
 }
 
 /**
  * 保存全局配置
  */
-export async function saveGlobalConfig(config: Partial<GlobalConfig>): Promise<void> {
+export async function saveGlobalConfig(
+  config: Partial<GlobalConfig>
+): Promise<void> {
   const currentConfig = await getGlobalConfig();
   const newConfig = { ...currentConfig, ...config };
   await writeJson(CONFIG_FILE, newConfig);
@@ -59,18 +61,21 @@ export function getConfigDir(): string {
  */
 export async function getProjectConfig(projectRoot: string): Promise<any> {
   const configPath = path.join(projectRoot, '.cursor-rules.json');
-  
+
   if (await exists(configPath)) {
     return readJson(configPath);
   }
-  
+
   return {};
 }
 
 /**
  * 保存项目配置
  */
-export async function saveProjectConfig(projectRoot: string, config: any): Promise<void> {
+export async function saveProjectConfig(
+  projectRoot: string,
+  config: any
+): Promise<void> {
   const configPath = path.join(projectRoot, '.cursor-rules.json');
   await writeJson(configPath, config);
-} 
+}

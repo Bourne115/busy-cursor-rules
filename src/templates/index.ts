@@ -40,9 +40,9 @@ alwaysApply: true
 - 避免不必要的计算和内存分配
 - 合理使用缓存
 - 注意避免内存泄漏
-`
-    }
-  ]
+`,
+    },
+  ],
 };
 
 const REACT_TEMPLATE: RuleTemplate = {
@@ -89,9 +89,9 @@ globs: ["**/*.jsx", "**/*.tsx"]
 - 使用 React.memo 避免不必要的重渲染
 - 合理使用 key 属性
 - 避免在 render 中创建对象和函数
-`
-    }
-  ]
+`,
+    },
+  ],
 };
 
 const TYPESCRIPT_TEMPLATE: RuleTemplate = {
@@ -134,9 +134,9 @@ globs: ["**/*.ts", "**/*.tsx"]
 - 使用 ES6 模块语法
 - 明确指定导入导出的类型
 - 避免循环依赖
-`
-    }
-  ]
+`,
+    },
+  ],
 };
 
 const VUE_TEMPLATE: RuleTemplate = {
@@ -183,9 +183,9 @@ globs: ["**/*.vue", "**/*.ts", "**/*.js"]
 - 使用 v-memo 优化列表渲染
 - 合理使用异步组件
 - 避免不必要的响应式数据
-`
-    }
-  ]
+`,
+    },
+  ],
 };
 
 const NODE_TEMPLATE: RuleTemplate = {
@@ -235,12 +235,10 @@ globs: ["**/*.ts", "**/*.js"]
 - 防范 SQL 注入
 - 使用 HTTPS
 - 实施访问控制
-`
-    }
-  ]
+`,
+    },
+  ],
 };
-
-
 
 // 模板注册表
 const TEMPLATES = new Map<string, RuleTemplate>([
@@ -248,7 +246,7 @@ const TEMPLATES = new Map<string, RuleTemplate>([
   ['react', REACT_TEMPLATE],
   ['typescript', TYPESCRIPT_TEMPLATE],
   ['vue', VUE_TEMPLATE],
-  ['node', NODE_TEMPLATE]
+  ['node', NODE_TEMPLATE],
 ]);
 
 /**
@@ -256,11 +254,11 @@ const TEMPLATES = new Map<string, RuleTemplate>([
  */
 export async function getTemplate(templateId: string): Promise<RuleTemplate> {
   const template = TEMPLATES.get(templateId);
-  
+
   if (!template) {
     throw new Error(`Template "${templateId}" not found`);
   }
-  
+
   return template;
 }
 
@@ -288,10 +286,12 @@ export function registerTemplate(template: RuleTemplate): void {
 /**
  * 获取模板列表（仅基本信息）
  */
-export async function getTemplateList(): Promise<Array<{id: string, name: string, description: string}>> {
+export async function getTemplateList(): Promise<
+  Array<{ id: string; name: string; description: string }>
+> {
   return Array.from(TEMPLATES.values()).map(template => ({
     id: template.id,
     name: template.name,
-    description: template.description
+    description: template.description,
   }));
-} 
+}

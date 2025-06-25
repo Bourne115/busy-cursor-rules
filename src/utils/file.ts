@@ -12,7 +12,10 @@ export async function ensureDir(dirPath: string): Promise<void> {
 /**
  * 写入文件，自动创建目录
  */
-export async function writeFile(filePath: string, content: string): Promise<void> {
+export async function writeFile(
+  filePath: string,
+  content: string
+): Promise<void> {
   await fs.ensureDir(path.dirname(filePath));
   await fs.writeFile(filePath, content, 'utf-8');
 }
@@ -64,7 +67,10 @@ export async function remove(filePath: string): Promise<void> {
 /**
  * 获取匹配的文件列表
  */
-export async function getFiles(pattern: string, cwd?: string): Promise<string[]> {
+export async function getFiles(
+  pattern: string,
+  cwd?: string
+): Promise<string[]> {
   return glob(pattern, { cwd });
 }
 
@@ -92,4 +98,4 @@ export async function isDirectory(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
-} 
+}

@@ -1,4 +1,9 @@
-import { getTemplate, getAllTemplates, hasTemplate, getTemplateList } from '../templates/index';
+import {
+  getAllTemplates,
+  getTemplate,
+  getTemplateList,
+  hasTemplate,
+} from '../templates/index';
 
 describe('Template System', () => {
   test('should get basic template', async () => {
@@ -23,7 +28,9 @@ describe('Template System', () => {
   });
 
   test('should throw error for non-existent template', async () => {
-    await expect(getTemplate('non-existent')).rejects.toThrow('Template "non-existent" not found');
+    await expect(getTemplate('non-existent')).rejects.toThrow(
+      'Template "non-existent" not found'
+    );
   });
 
   test('should check if template exists', () => {
@@ -46,4 +53,4 @@ describe('Template System', () => {
     expect(list[0]).toHaveProperty('name');
     expect(list[0]).toHaveProperty('description');
   });
-}); 
+});

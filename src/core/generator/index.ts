@@ -1,7 +1,8 @@
-import path from 'path';
-import { RuleTemplate, RuleFile, ProjectInfo, RuleContext } from '@/types/index';
-import { writeFile, ensureDir } from '@/utils/file';
 import { getTemplate } from '@/templates/index';
+import { ProjectInfo, RuleContext, RuleTemplate } from '@/types/index';
+import { ensureDir, writeFile } from '@/utils/file';
+import { existsSync } from 'fs';
+import path from 'path';
 
 /**
  * 生成规则文件
@@ -11,13 +12,13 @@ export async function generateRules(
   templates: string[]
 ): Promise<void> {
   const { rulesDir } = context;
-  
+
   // 确保规则目录存在
   await ensureDir(rulesDir);
   await ensureDir(path.join(rulesDir, 'basic'));
   await ensureDir(path.join(rulesDir, 'modules'));
   await ensureDir(path.join(rulesDir, 'workflow'));
-  
+
   // 生成模板规则
   for (const templateName of templates) {
     try {
@@ -27,7 +28,7 @@ export async function generateRules(
       console.error(`Failed to generate template ${templateName}:`, error);
     }
   }
-  
+
   // 生成 AI 协作协议文件
   await generateAIProtocol(context);
 }
@@ -40,16 +41,16 @@ async function generateTemplateFiles(
   template: RuleTemplate
 ): Promise<void> {
   const { rulesDir, projectInfo } = context;
-  
+
   for (const file of template.files) {
     const filePath = path.join(rulesDir, file.path);
-    
+
     // 处理模板变量
     let content = file.content;
     if (file.template && file.variables) {
       content = processTemplate(content, file.variables, projectInfo);
     }
-    
+
     await writeFile(filePath, content);
   }
 }
@@ -63,7 +64,7 @@ function processTemplate(
   projectInfo: ProjectInfo
 ): string {
   let processedContent = content;
-  
+
   // 替换项目相关变量
   const contextVars = {
     PROJECT_TYPE: projectInfo.type,
@@ -72,15 +73,15 @@ function processTemplate(
     HAS_TYPESCRIPT: projectInfo.hasTypeScript,
     HAS_TESTS: projectInfo.hasTests,
     PACKAGE_MANAGER: projectInfo.packageManager,
-    ...variables
+    ...variables,
   };
-  
+
   // 替换所有变量
   for (const [key, value] of Object.entries(contextVars)) {
     const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
     processedContent = processedContent.replace(regex, String(value));
   }
-  
+
   return processedContent;
 }
 
@@ -89,7 +90,7 @@ function processTemplate(
  */
 async function generateAIProtocol(context: RuleContext): Promise<void> {
   const { rulesDir, projectInfo } = context;
-  
+
   const protocol = `# AI协作执行规则
 
 ## 项目信息
@@ -138,18 +139,22 @@ export async function addRule(
 ): Promise<void> {
   try {
     const template = await getTemplate(ruleName);
-    
+
     // 检查是否已存在
     if (!force) {
       for (const file of template.files) {
         const filePath = path.join(context.rulesDir, file.path);
-        // 这里可以添加文件存在检查逻辑
+        if (existsSync(filePath)) {
+          throw new Error(`Rule ${ruleName} already exists: ${filePath}`);
+        }
       }
     }
-    
+
     await generateTemplateFiles(context, template);
   } catch (error) {
-    throw new Error(`Failed to add rule ${ruleName}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to add rule ${ruleName}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -162,16 +167,19 @@ export async function validateRules(rulesDir: string): Promise<boolean> {
     const requiredDirs = ['basic', 'modules', 'workflow'];
     for (const dir of requiredDirs) {
       const dirPath = path.join(rulesDir, dir);
-      // 这里可以添加目录存在检查
+      if (!existsSync(dirPath)) {
+        return false;
+      }
     }
-    
-    // 检查 AI 协议文件
+
     const aiProtocolPath = path.join(rulesDir, 'ai.mdc');
-    // 这里可以添加文件存在检查
-    
+    if (!existsSync(aiProtocolPath)) {
+      return false;
+    }
+
     return true;
   } catch (error) {
     console.error('Rule validation failed:', error);
     return false;
   }
-} 
+}
