@@ -8,7 +8,7 @@
 
 如果您发现了 bug，请：
 
-1. 检查 [现有 issues](https://github.com/cursor-rules/cursor-rules-cli/issues) 确认问题尚未被报告
+1. 检查 [现有 issues](https://github.com/Bourne115/busy-cursor-rules/issues) 确认问题尚未被报告
 2. 创建一个新的 issue，包含：
    - 详细的问题描述
    - 重现步骤
@@ -21,7 +21,7 @@
 
 我们欢迎新功能建议！请：
 
-1. 检查 [现有 issues](https://github.com/cursor-rules/cursor-rules-cli/issues) 确认功能尚未被建议
+1. 检查 [现有 issues](https://github.com/Bourne115/busy-cursor-rules/issues) 确认功能尚未被建议
 2. 创建一个 feature request issue，描述：
    - 功能的详细说明
    - 使用场景
@@ -34,17 +34,20 @@
 
 1. Fork 项目到您的账号
 2. 克隆您的 fork：
+
 ```bash
 git clone https://github.com/YOUR_USERNAME/cursor-rules-cli.git
 cd cursor-rules-cli
 ```
 
 3. 安装依赖：
+
 ```bash
 pnpm install
 ```
 
 4. 创建开发分支：
+
 ```bash
 git checkout -b feature/your-feature-name
 ```
@@ -57,6 +60,7 @@ git checkout -b feature/your-feature-name
    - 添加必要的注释
 
 2. **测试**：
+
 ```bash
 # 运行所有测试
 pnpm test
@@ -69,12 +73,14 @@ pnpm lint
 ```
 
 3. **提交代码**：
+
 ```bash
 git add .
 git commit -m "feat: add new feature description"
 ```
 
 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
+
 - `feat:` 新功能
 - `fix:` Bug 修复
 - `docs:` 文档更新
@@ -84,6 +90,7 @@ git commit -m "feat: add new feature description"
 - `chore:` 构建工具或辅助工具的变动
 
 4. **推送到您的 fork**：
+
 ```bash
 git push origin feature/your-feature-name
 ```
@@ -172,7 +179,7 @@ git push origin feature/your-feature-name
 
 如果您有任何问题，可以通过以下方式联系我们：
 
-- [GitHub Issues](https://github.com/cursor-rules/cursor-rules-cli/issues)
-- [GitHub Discussions](https://github.com/cursor-rules/cursor-rules-cli/discussions)
+- [GitHub Issues](https://github.com/Bourne115/busy-cursor-rules/issues)
+- [GitHub Discussions](https://github.com/Bourne115/busy-cursor-rules/discussions)
 
-再次感谢您的贡献！🎉 
+再次感谢您的贡献！🎉

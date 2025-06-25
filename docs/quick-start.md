@@ -6,7 +6,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/cursor-rules/cursor-rules-cli.git
+git clone https://github.com/Bourne115/busy-cursor-rules.git
 cd cursor-rules-cli
 
 # 2. 使用 Makefile 一键设置
@@ -34,7 +34,7 @@ git --version
 ### 2. 克隆项目
 
 ```bash
-git clone https://github.com/cursor-rules/cursor-rules-cli.git
+git clone https://github.com/Bourne115/busy-cursor-rules.git
 cd cursor-rules-cli
 ```
 
@@ -300,9 +300,9 @@ pnpm run
 
 ## 🤝 加入社区
 
-- [GitHub Discussions](https://github.com/cursor-rules/cursor-rules-cli/discussions)
-- [Issues](https://github.com/cursor-rules/cursor-rules-cli/issues)
-- [Wiki](https://github.com/cursor-rules/cursor-rules-cli/wiki)
+- [GitHub Discussions](https://github.com/Bourne115/busy-cursor-rules/discussions)
+- [Issues](https://github.com/Bourne115/busy-cursor-rules/issues)
+- [Wiki](https://github.com/Bourne115/busy-cursor-rules/wiki)
 
 ---
 

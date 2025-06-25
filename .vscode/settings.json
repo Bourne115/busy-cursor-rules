@@ -8,7 +8,7 @@
   "eslint.format.enable": true,
   "eslint.validate": ["typescript", "javascript"],
   "eslint.options": {
-    "configFile": ".eslintrc.cjs"
+    "overrideConfigFile": ".eslintrc.cjs"
   },
   "prettier.enable": true,
   "prettier.configPath": ".prettierrc.cjs",
@@ -65,7 +65,7 @@
   "git.enableSmartCommit": true,
   "git.confirmSync": false,
   "git.autofetch": true,
-  "git.inputValidation": "warn",
+  "git.inputValidation": true,
   "git.inputValidationLength": 72,
   "terminal.integrated.defaultProfile.osx": "zsh",
   "terminal.integrated.env.osx": {
