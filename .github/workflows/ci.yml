@@ -8,6 +8,7 @@ on:
     branches: [main, beta]
 
 jobs:
+  # 主要的CI检查
   ci:
     name: 代码检查和构建
     runs-on: ubuntu-latest
@@ -35,21 +36,31 @@ jobs:
       - name: 🔍 代码质量检查
         run: |
           echo "🔍 运行代码质量检查..."
+          echo "→ TypeScript类型检查"
           pnpm run type-check
+          echo "→ 代码格式检查"
           pnpm run format:check
+          echo "→ ESLint代码检查"
           pnpm run lint
-
-      - name: 📦 构建项目
-        run: pnpm run build
 
       - name: 🧪 运行测试
         run: |
           echo "🧪 运行测试..."
           pnpm run test
 
-      - name: 🔒 安全审计
-        run: pnpm audit --audit-level moderate || echo "⚠️  发现安全警告，请检查"
+      - name: 📦 构建项目
+        run: |
+          echo "📦 构建项目..."
+          pnpm run build
+          echo "✅ 构建完成，检查产物..."
+          ls -la dist/
 
+      - name: 🔒 安全审计
+        run: |
+          echo "🔒 运行安全审计..."
+          pnpm audit --audit-level moderate || echo "⚠️  发现安全警告，请检查"
+
+  # 提交信息检查（仅PR）
   commitlint:
     name: 提交信息检查
     runs-on: ubuntu-latest
@@ -76,4 +87,6 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: 🔍 检查提交信息
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+        run: |
+          echo "🔍 检查提交信息格式..."
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose

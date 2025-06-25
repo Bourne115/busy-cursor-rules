@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
 jobs:
   # 检查CI是否通过
   check-ci:
@@ -28,20 +32,28 @@ jobs:
               ref: context.sha
             });
 
+            console.log(`检查标签 ${context.ref} 的CI状态...`);
+
             const ciRuns = checks.check_runs.filter(run =>
               run.name.includes('代码检查和构建') ||
               run.name.includes('CI')
             );
 
             if (ciRuns.length === 0) {
-              console.log('⚠️  未找到CI检查，继续发布');
+              console.log('⚠️  未找到CI检查记录，继续发布');
               return 'true';
             }
+
+            console.log(`找到 ${ciRuns.length} 个CI检查：`);
+            ciRuns.forEach(run => {
+              console.log(`- ${run.name}: ${run.conclusion}`);
+            });
 
             const allPassed = ciRuns.every(run => run.conclusion === 'success');
             console.log(`CI检查结果: ${allPassed ? '✅ 通过' : '❌ 失败'}`);
             return allPassed.toString();
 
+  # 发布到npm
   release:
     name: 发布到npm
     runs-on: ubuntu-latest
@@ -58,27 +70,46 @@ jobs:
       - name: 📦 安装pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
       - name: 🔧 设置Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
       - name: 📚 安装依赖
         run: pnpm install --no-frozen-lockfile
 
+      - name: 🔍 发布前验证
+        run: |
+          echo "🔍 验证包信息..."
+          echo "包名: $(node -p 'require("./package.json").name')"
+          echo "版本: $(node -p 'require("./package.json").version')"
+          echo "描述: $(node -p 'require("./package.json").description')"
+
       - name: 📦 构建项目
-        run: pnpm run build
+        run: |
+          echo "📦 构建发布版本..."
+          pnpm run build
+          echo "✅ 构建完成，验证产物..."
+          ls -la dist/
+          echo "主要文件大小："
+          du -h dist/* 2>/dev/null || echo "无法获取文件大小"
 
       - name: 📋 获取版本信息
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "发布版本: $VERSION"
 
       - name: 🚀 发布到npm
-        run: pnpm publish --access public --no-git-checks
+        run: |
+          echo "🚀 发布到npm registry..."
+          pnpm publish --access public --no-git-checks
+          echo "✅ npm发布成功！"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -94,18 +125,47 @@ jobs:
 
             ### 📦 安装
             ```bash
+            # 全局安装
             npm install -g @qile-c/cursor-rules-cli
+
+            # 或使用pnpm
+            pnpm add -g @qile-c/cursor-rules-cli
+
+            # 或使用yarn
+            yarn global add @qile-c/cursor-rules-cli
             ```
 
-            ### 🚀 使用
+            ### 🚀 快速开始
             ```bash
+            # 初始化项目规则
             cursor-rules init
+
+            # 查看可用模板
+            cursor-rules list
+
+            # 添加特定规则
+            cursor-rules add <template-name>
             ```
 
-            ### 🔗 链接
-            - [npm包地址](https://www.npmjs.com/package/@qile-c/cursor-rules-cli)
-            - [文档地址](https://github.com/${{ github.repository }})
+            ### 🔗 相关链接
+            - 📦 [npm包地址](https://www.npmjs.com/package/@qile-c/cursor-rules-cli)
+            - 📚 [使用文档](https://github.com/${{ github.repository }}#readme)
+            - 🐛 [问题反馈](https://github.com/${{ github.repository }}/issues)
+            - 💬 [讨论交流](https://github.com/${{ github.repository }}/discussions)
+
+            ### 📊 包信息
+            - **大小**: 查看npm页面获取最新信息
+            - **Node.js**: >= 16.0.0
+            - **包管理器**: npm/pnpm/yarn
           generate_release_notes: true
 
-      - name: 📢 发布成功
-        run: echo "🎉 发布成功！npm install -g @qile-c/cursor-rules-cli"
+      - name: 📢 发布成功通知
+        run: |
+          echo ""
+          echo "🎉 发布成功！"
+          echo "📦 包名: @qile-c/cursor-rules-cli"
+          echo "🏷️  版本: ${{ steps.get_version.outputs.VERSION }}"
+          echo "🔗 npm: https://www.npmjs.com/package/@qile-c/cursor-rules-cli"
+          echo ""
+          echo "安装命令:"
+          echo "npm install -g @qile-c/cursor-rules-cli"
