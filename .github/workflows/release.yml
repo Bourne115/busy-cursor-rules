@@ -9,6 +9,9 @@ jobs:
   release:
     name: 发布到npm
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
 
     steps:
       - name: 🛎️ 检出代码
