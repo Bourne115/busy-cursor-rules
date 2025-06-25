@@ -42,13 +42,10 @@ jobs:
       - name: 📦 构建项目
         run: pnpm run build
 
-      - name: 🧪 运行测试 (如果存在)
+      - name: 🧪 运行测试
         run: |
-          if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
-            pnpm run test
-          else
-            echo "⚠️  测试目录为空，跳过测试"
-          fi
+          echo "🧪 运行测试..."
+          pnpm run test
 
       - name: 🔒 安全审计
         run: pnpm audit --audit-level moderate || echo "⚠️  发现安全警告，请检查"

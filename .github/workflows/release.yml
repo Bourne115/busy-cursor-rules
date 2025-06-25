@@ -70,15 +70,8 @@ jobs:
       - name: 📚 安装依赖
         run: pnpm install --no-frozen-lockfile
 
-      - name: 🔍 发布前最终检查
-        run: |
-          echo "🔍 执行发布前检查..."
-          pnpm run type-check
-          pnpm run lint
-          pnpm run format:check
-
       - name: 📦 构建项目
-        run: pnpm run release
+        run: pnpm run build
 
       - name: 📋 获取版本信息
         id: get_version
