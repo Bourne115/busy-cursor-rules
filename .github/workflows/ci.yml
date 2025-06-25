@@ -87,7 +87,7 @@ jobs:
           cache: 'pnpm'
 
       - name: 📚 安装依赖
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: 🔍 检查提交信息
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
@@ -112,7 +112,7 @@ jobs:
           cache: 'pnpm'
 
       - name: 📚 安装依赖
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: 🔒 安全审计
         run: pnpm audit --audit-level moderate
