@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  test:
+    name: 测试和代码检查
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
+    steps:
+      - name: 🛎️ 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 安装pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🔧 设置Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: 📚 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔍 类型检查
+        run: pnpm run type-check
+
+      - name: 💅 检查代码格式
+        run: pnpm run format:check
+
+      - name: 🔍 代码质量检查
+        run: pnpm run lint
+
+      - name: 🧪 运行测试
+        run: pnpm run test:coverage
+
+      - name: 📦 构建项目
+        run: pnpm run build
+
+      - name: ⬆️ 上传覆盖率报告
+        if: matrix.node-version == '18.x'
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  lint-commits:
+    name: 提交信息检查
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: 🛎️ 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 安装pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🔧 设置Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: 📚 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔍 检查提交信息
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  security:
+    name: 安全检查
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🛎️ 检出代码
+        uses: actions/checkout@v4
+
+      - name: 📦 安装pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🔧 设置Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: 📚 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔒 安全审计
+        run: pnpm audit --audit-level moderate
+
+      - name: 🔍 检查过时依赖
+        run: pnpm outdated || true 

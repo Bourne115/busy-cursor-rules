@@ -1,0 +1,50 @@
+{
+  "recommendations": [
+    // 必备扩展
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.vscode-typescript-next",
+
+    // Git相关
+    "eamodio.gitlens",
+    "vivaxy.vscode-conventional-commits",
+    "donjayamanne.githistory",
+
+    // 开发工具
+    "bradlc.vscode-tailwindcss",
+    "christian-kohler.path-intellisense",
+    "christian-kohler.npm-intellisense",
+    "ms-vscode.vscode-json",
+
+    // 测试
+    "orta.vscode-jest",
+    "ms-vscode.test-adapter-converter",
+
+    // 代码质量
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker",
+    "shardulm94.trailing-spaces",
+
+    // 效率工具
+    "formulahendry.auto-rename-tag",
+    "ms-vscode.vscode-todo-highlight",
+    "alefragnani.bookmarks",
+    "gruntfuggly.todo-tree",
+
+    // 文档和Markdown
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+    "bierner.markdown-mermaid",
+
+    // 主题和界面
+    "pkief.material-icon-theme",
+    "github.github-vscode-theme",
+
+    // Node.js和包管理
+    "eg2.vscode-npm-script",
+    "christian-kohler.npm-intellisense"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript-tslint-plugin"
+  ]
+}

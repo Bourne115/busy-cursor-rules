@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: 发布到npm
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🛎️ 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 安装pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🔧 设置Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 📚 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔍 类型检查
+        run: pnpm run type-check
+
+      - name: 💅 检查代码格式
+        run: pnpm run format:check
+
+      - name: 🔍 代码质量检查
+        run: pnpm run lint
+
+      - name: 🧪 运行测试
+        run: pnpm run test
+
+      - name: 📦 构建项目
+        run: pnpm run build
+
+      - name: 📋 获取版本信息
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: 🚀 发布到npm
+        run: pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 📝 创建GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## 更新内容
+
+            详细更新内容请查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+
+            ## 安装
+
+            ```bash
+            npm install -g @busyFe/cursor-rules-cli
+            # 或
+            pnpm add -g @busyFe/cursor-rules-cli
+            ```
+
+            ## 使用
+
+            ```bash
+            cursor-rules init
+            ```
+          draft: false
+          prerelease: false
+
+      - name: 📢 发布通知
+        if: success()
+        run: |
+          echo "🎉 成功发布 ${{ steps.get_version.outputs.VERSION }} 到 npm!"
+          echo "📦 包名: @busyFe/cursor-rules-cli"
+          echo "🔗 npm链接: https://www.npmjs.com/package/@busyFe/cursor-rules-cli" 

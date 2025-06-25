@@ -38,6 +38,7 @@ cursor-rules init
 ```
 
 CLI 会自动：
+
 1. 检测你的项目类型（React、Vue、Node.js 等）
 2. 推荐合适的规则模板
 3. 交互式选择需要的规则
@@ -111,10 +112,12 @@ cursor-rules config --reset
 ## 🎯 支持的模板
 
 ### 基础模板
+
 - **basic** - 通用编程基础规范
 - **typescript** - TypeScript 开发规范
 
 ### 前端框架
+
 - **react** - React 开发最佳实践
 - **vue** - Vue.js 开发规范
 - **angular** - Angular 开发指南
@@ -122,10 +125,12 @@ cursor-rules config --reset
 - **nuxt** - Nuxt.js 项目规范
 
 ### 后端框架
+
 - **node** - Node.js 开发规范
 - **express** - Express.js 最佳实践
 
 ### 工具和测试
+
 - **testing** - 测试框架规范
 - **eslint** - ESLint 配置规范
 - **prettier** - 代码格式化规范
@@ -172,6 +177,9 @@ cd cursor-rules-cli
 # 安装依赖
 pnpm install
 
+# 设置Git钩子
+pnpm run prepare
+
 # 开发模式运行
 pnpm dev
 
@@ -182,15 +190,87 @@ pnpm build
 pnpm test
 ```
 
+### 工程化功能
+
+本项目配备了完整的工程化工具链：
+
+#### 代码规范
+
+- **ESLint** - 代码质量检查
+- **Prettier** - 代码格式化
+- **TypeScript** - 类型检查
+- **simple-git-hooks** - Git钩子管理
+- **lint-staged** - 提交前检查
+
+```bash
+# 代码格式化
+pnpm run format
+
+# 代码质量检查
+pnpm run lint
+
+# 修复可修复的问题
+pnpm run lint:fix
+
+# 类型检查
+pnpm run type-check
+```
+
+#### Git提交规范
+
+项目使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
+
+```bash
+# 使用交互式提交工具
+pnpm run commit
+
+# 手动提交示例
+git commit -m "feat: add new template support"
+git commit -m "fix: resolve config parsing issue"
+git commit -m "docs: update installation guide"
+```
+
+#### 自动化发版
+
+```bash
+# 补丁版本 (1.0.0 -> 1.0.1)
+pnpm run release:patch
+
+# 小版本 (1.0.0 -> 1.1.0)
+pnpm run release:minor
+
+# 大版本 (1.0.0 -> 2.0.0)
+pnpm run release:major
+```
+
+#### CI/CD流程
+
+- **持续集成** - 自动运行测试、代码检查、构建验证
+- **持续部署** - 自动发布到npm、创建GitHub Release
+- **多版本测试** - 支持Node.js 16.x、18.x、20.x
+- **安全审计** - 依赖包安全检查
+
+详细的工程化指南请查看 [工程化指南](docs/engineering.md)。
+
 ### 贡献指南
 
 我们欢迎所有形式的贡献！请查看 [贡献指南](CONTRIBUTING.md) 了解更多信息。
 
+#### 贡献流程
+
 1. Fork 项目
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+3. 遵循代码规范和提交规范
+4. 提交更改 (`pnpm run commit` 或手动规范提交)
+5. 推送到分支 (`git push origin feature/AmazingFeature`)
+6. 打开 Pull Request
+
+#### 开发规范
+
+- 提交前会自动运行代码检查和格式化
+- 所有新功能需要包含测试
+- 提交信息必须遵循Conventional Commits规范
+- Pull Request会自动触发CI检查
 
 ## 📝 更新日志
 
@@ -222,4 +302,4 @@ pnpm test
 
 <div align="center">
 Made with ❤️ by the Cursor Rules CLI Team
-</div> 
+</div>

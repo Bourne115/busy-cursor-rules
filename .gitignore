@@ -56,4 +56,25 @@ logs/
 # Test
 .nyc_output
 .coverage
-*.lcov 
+*.lcov
+test-results/
+test-reports/
+
+# Git hooks (generated)
+.husky/_/
+
+# Release artifacts
+release/
+artifacts/
+
+# Lock files (keep pnpm-lock.yaml but ignore others)
+package-lock.json
+yarn.lock
+
+# Local development
+.local/
+*.local
+
+# Backup files
+*.bak
+*.backup
