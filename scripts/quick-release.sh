@@ -58,14 +58,38 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   exit 1
 fi
 
+# 运行发布前检查和构建
+echo "🔍 运行发布前检查..."
+pnpm run type-check
+pnpm run lint
+pnpm run format:check
+
+echo "📦 构建项目..."
+pnpm run build
+
+# 运行测试（如果存在）
+echo "🧪 运行测试..."
+if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+  pnpm run test
+else
+  echo "⚠️  测试目录为空，跳过测试"
+fi
+
 # 更新版本号
 echo "📝 更新版本号..."
 npm version $NEW_VERSION --no-git-tag-version
 
-# 提交版本更新
+# 生成 changelog
+echo "📋 生成 changelog..."
+pnpm run changelog
+
+# 提交版本更新和 changelog
 echo "💾 提交版本更新..."
-git add package.json
-git commit -m "chore: bump version to v$NEW_VERSION"
+git add package.json CHANGELOG.md
+git commit -m "chore: release v$NEW_VERSION
+
+- Bump version to v$NEW_VERSION
+- Update CHANGELOG.md"
 
 # 创建并推送标签
 echo "🏷️  创建标签..."
@@ -75,6 +99,8 @@ echo "📤 推送到远程..."
 git push origin $CURRENT_BRANCH
 git push origin "v$NEW_VERSION"
 
-echo "✅ 发布已触发！查看进度："
-echo "   https://github.com/$(git config --get remote.origin.url | sed 's/.*github.com[:/]\([^.]*\).*/\1/')/actions"
+echo ""
+echo "✅ 发布已触发！"
+echo "📊 查看发布进度: https://github.com/$(git config --get remote.origin.url | sed 's/.*github.com[:/]\([^.]*\).*/\1/')/actions"
 echo "📦 发布后安装: npm install -g @qile-c/cursor-rules-cli"
+echo "🔗 npm 地址: https://www.npmjs.com/package/@qile-c/cursor-rules-cli"
