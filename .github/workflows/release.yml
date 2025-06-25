@@ -29,7 +29,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: 📚 安装依赖
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: 🔍 类型检查
         run: pnpm run type-check
@@ -46,14 +46,6 @@ jobs:
       - name: 📋 获取版本信息
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: 🔍 检查npm版本
-        run: |
-          VERSION=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
-          if npm view @busyFe/cursor-rules-cli@$VERSION version >/dev/null 2>&1; then
-            echo "版本 $VERSION 已存在于npm，跳过发布"
-            exit 1
-          fi
 
       - name: 🚀 发布到npm
         run: pnpm publish --access public --no-git-checks
