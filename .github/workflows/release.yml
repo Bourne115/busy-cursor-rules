@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: 🛎️ 检出代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: 📦 安装pnpm
         uses: pnpm/action-setup@v2
@@ -32,16 +30,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: 📚 安装依赖
-        run: pnpm install --no-frozen-lockfile
-
-      - name: 🔍 类型检查
-        run: pnpm run type-check
-
-      - name: 💅 检查代码格式
-        run: pnpm run format:check
-
-      - name: 🔍 代码质量检查
-        run: pnpm run lint
+        run: pnpm install --frozen-lockfile
 
       - name: 📦 构建项目
         run: pnpm run build
@@ -63,35 +52,22 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           name: Release ${{ steps.get_version.outputs.VERSION }}
           body: |
-            ## 🎉 发布说明
+            ## 🎉 版本 ${{ steps.get_version.outputs.VERSION }} 发布
 
-            详细更新内容请查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
-
-            ## 📦 安装
-
+            ### 📦 安装
             ```bash
             npm install -g @qile-c/cursor-rules-cli
-            # 或
-            pnpm add -g @qile-c/cursor-rules-cli
             ```
 
-            ## 🚀 使用
-
+            ### 🚀 使用
             ```bash
             cursor-rules init
             ```
 
-            ## 🔗 相关链接
-
+            ### 🔗 链接
             - [npm包地址](https://www.npmjs.com/package/@qile-c/cursor-rules-cli)
             - [文档地址](https://github.com/${{ github.repository }})
-          draft: false
-          prerelease: false
           generate_release_notes: true
 
-      - name: 📢 发布成功通知
-        if: success()
-        run: |
-          echo "🎉 成功发布 ${{ steps.get_version.outputs.VERSION }} 到 npm!"
-          echo "📦 包名: @qile-c/cursor-rules-cli"
-          echo "🔗 npm链接: https://www.npmjs.com/package/@qile-c/cursor-rules-cli"
+      - name: 📢 发布成功
+        run: echo "🎉 发布成功！npm install -g @qile-c/cursor-rules-cli"

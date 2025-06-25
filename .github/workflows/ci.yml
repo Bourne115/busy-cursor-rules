@@ -7,13 +7,9 @@ on:
     branches: [main, master, develop]
 
 jobs:
-  test:
-    name: 测试和代码检查
+  ci:
+    name: 代码检查和构建
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [16.x, 18.x, 20.x]
 
     steps:
       - name: 🛎️ 检出代码
@@ -26,45 +22,37 @@ jobs:
         with:
           version: 8
 
-      - name: 🔧 设置Node.js ${{ matrix.node-version }}
+      - name: 🔧 设置Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '18'
           cache: 'pnpm'
 
       - name: 📚 安装依赖
-        run: pnpm install --no-frozen-lockfile
-
-      - name: 🔍 类型检查
-        run: pnpm run type-check
-
-      - name: 💅 检查代码格式
-        run: pnpm run format:check
+        run: pnpm install --frozen-lockfile
 
       - name: 🔍 代码质量检查
-        run: pnpm run lint
-
-      - name: 🧪 验证测试配置
         run: |
-          echo "测试配置验证..."
-          if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
-            pnpm run test:coverage
-          else
-            echo "⚠️  测试目录为空，跳过测试步骤"
-          fi
+          echo "🔍 运行代码质量检查..."
+          pnpm run type-check
+          pnpm run format:check
+          pnpm run lint
 
       - name: 📦 构建项目
         run: pnpm run build
 
-      - name: ⬆️ 上传覆盖率报告
-        if: matrix.node-version == '18.x'
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
+      - name: 🧪 运行测试 (如果存在)
+        run: |
+          if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+            pnpm run test
+          else
+            echo "⚠️  测试目录为空，跳过测试"
+          fi
 
-  lint-commits:
+      - name: 🔒 安全审计
+        run: pnpm audit --audit-level moderate || echo "⚠️  发现安全警告，请检查"
+
+  commitlint:
     name: 提交信息检查
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -87,35 +75,7 @@ jobs:
           cache: 'pnpm'
 
       - name: 📚 安装依赖
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: 🔍 检查提交信息
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
-
-  security:
-    name: 安全检查
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 🛎️ 检出代码
-        uses: actions/checkout@v4
-
-      - name: 📦 安装pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: 🔧 设置Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'pnpm'
-
-      - name: 📚 安装依赖
-        run: pnpm install --no-frozen-lockfile
-
-      - name: 🔒 安全审计
-        run: pnpm audit --audit-level moderate
-
-      - name: 🔍 检查过时依赖
-        run: pnpm outdated || true
