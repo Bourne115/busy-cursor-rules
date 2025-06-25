@@ -1,5 +1,5 @@
 {
-  "name": "@busyFe/cursor-rules-cli",
+  "name": "@busyfe/cursor-rules-cli",
   "version": "1.0.0",
   "description": "Cursor Rules 智能管理工具 - 一款用于生成、管理和优化 Cursor IDE AI 协作规范的命令行工具",
   "main": "dist/index.js",
