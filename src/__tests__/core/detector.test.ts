@@ -386,7 +386,7 @@ describe('ProjectDetector', () => {
 
   describe('error handling', () => {
     it('should throw error when project directory does not exist', async () => {
-      mockFs.pathExists.mockResolvedValue(false);
+      mockFs.pathExists.mockImplementation(() => Promise.resolve(false));
 
       await expect(detectProject('/non/existent/path'))
         .rejects.toThrow('项目目录不存在');
@@ -438,7 +438,9 @@ describe('ProjectDetector', () => {
     });
 
     it('should handle file system errors gracefully', async () => {
-      mockFs.pathExists.mockRejectedValue(new Error('Permission denied'));
+      mockFs.pathExists.mockImplementation((_path: string | Buffer) => {
+        return Promise.reject(new Error('Permission denied'));
+      });
 
       await expect(detectProject('/test/project'))
         .rejects.toThrow('项目检测失败');
