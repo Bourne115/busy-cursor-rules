@@ -11,7 +11,7 @@
 ## 🔧 开发环境
 
 **Node.js**: v20.12.2 (使用 fnm 管理)
-**包管理**: npm (当前环境) / pnpm (推荐)
+**包管理**: pnpm (当前环境) / pnpm (推荐)
 **开发状态**: 核心功能完整，模板系统稳定
 
 ## 🏗️ 技术栈和工具链
@@ -20,7 +20,7 @@
 
 - **语言**: TypeScript (ES2022 target)
 - **运行时**: Node.js >= 16.0.0 (当前使用 v20.12.2)
-- **包管理**: pnpm >= 9.0.0 (推荐) / npm (兼容)
+- **包管理**: pnpm >= 9.0.0 (推荐) / pnpm (兼容)
 - **模块系统**: ESNext with Node.js resolution
 - **CLI框架**: Commander.js
 - **用户交互**: Inquirer.js
@@ -146,7 +146,7 @@ interface ProjectInfo {
   type: ProjectType; // 项目类型
   framework?: string; // 框架信息
   language: string; // 主要语言
-  packageManager: 'npm' | 'yarn' | 'pnpm'; // 包管理器
+  packageManager: 'pnpm' | 'yarn' | 'pnpm'; // 包管理器
   dependencies: string[]; // 项目依赖
   devDependencies: string[]; // 开发依赖
   hasTypeScript: boolean; // 是否使用 TypeScript
@@ -216,18 +216,18 @@ try {
 
 ```bash
 # 构建项目
-npm run build
+pnpm run build
 
 # 开发模式
-npm run dev
+pnpm run dev
 
 # 测试
-npm test
+pnpm test
 
 # 代码质量检查
-npm run lint
-npm run type-check
-npm run format:check
+pnpm run lint
+pnpm run type-check
+pnpm run format:check
 ```
 
 ### 模板文件结构
@@ -355,9 +355,9 @@ pnpm run release:major
 ### 常用开发命令
 
 ```bash
-npm run build          # 构建项目
+pnpm run build          # 构建项目
 node dist/cli.js --help # 测试CLI
-npm run lint:fix       # 修复代码质量问题
+pnpm run lint:fix       # 修复代码质量问题
 ```
 
 ### 问题排查时要检查
@@ -376,6 +376,6 @@ npm run lint:fix       # 修复代码质量问题
 
 ---
 
-**最后更新**: 2024年12月
+**最后更新**: 2025年6月
 **当前状态**: 核心功能稳定，模板系统完整
-**维护者**: Cursor Rules CLI Team
+**维护者**: Qile-C
