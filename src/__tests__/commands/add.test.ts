@@ -11,10 +11,16 @@ jest.mock('../../core/generator');
 jest.mock('../../templates');
 jest.mock('../../utils/config');
 
-const mockDetectProject = detectProject as jest.MockedFunction<typeof detectProject>;
+const mockDetectProject = detectProject as jest.MockedFunction<
+  typeof detectProject
+>;
 const mockAddRule = addRule as jest.MockedFunction<typeof addRule>;
-const mockGetTemplateList = getTemplateList as jest.MockedFunction<typeof getTemplateList>;
-const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<typeof getGlobalConfig>;
+const mockGetTemplateList = getTemplateList as jest.MockedFunction<
+  typeof getTemplateList
+>;
+const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<
+  typeof getGlobalConfig
+>;
 
 // Define AddOptions based on command
 interface AddOptions {
@@ -34,18 +40,38 @@ const mockProjectInfo: ProjectInfo = {
 };
 
 const mockTemplateList = [
-  { id: 'react', name: 'React', description: 'React 组件开发、状态管理、性能优化' },
+  {
+    id: 'react',
+    name: 'React',
+    description: 'React 组件开发、状态管理、性能优化',
+  },
   { id: 'vue', name: 'Vue', description: 'Vue 组件开发、状态管理、路由' },
-  { id: 'node', name: 'Node.js', description: 'Node.js API开发、数据库操作、安全' },
-  { id: 'typescript', name: 'TypeScript', description: '类型系统、泛型、工具类型最佳实践' },
-  { id: 'testing', name: '测试', description: '单元测试、集成测试、端到端测试' },
-  { id: 'workflow', name: '开发工作流', description: 'Git工作流、CI/CD、代码质量控制' },
+  {
+    id: 'node',
+    name: 'Node.js',
+    description: 'Node.js API开发、数据库操作、安全',
+  },
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    description: '类型系统、泛型、工具类型最佳实践',
+  },
+  {
+    id: 'testing',
+    name: '测试',
+    description: '单元测试、集成测试、端到端测试',
+  },
+  {
+    id: 'workflow',
+    name: '开发工作流',
+    description: 'Git工作流、CI/CD、代码质量控制',
+  },
 ];
 
 describe('AddCommand', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Default mocks
     mockDetectProject.mockResolvedValue(mockProjectInfo);
     mockGetTemplateList.mockResolvedValue(mockTemplateList);
@@ -124,9 +150,7 @@ describe('AddCommand', () => {
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('typescript')
       );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('testing')
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('testing'));
 
       logSpy.mockRestore();
     });
@@ -150,8 +174,9 @@ describe('AddCommand', () => {
       });
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      await expect(addCommand('invalid-template', { force: false }))
-        .rejects.toThrow('Process exit');
+      await expect(
+        addCommand('invalid-template', { force: false })
+      ).rejects.toThrow('Process exit');
 
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('📋 可用的规则')
@@ -168,8 +193,9 @@ describe('AddCommand', () => {
       });
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      await expect(addCommand('invalid-template', { force: false }))
-        .rejects.toThrow('Process exit');
+      await expect(
+        addCommand('invalid-template', { force: false })
+      ).rejects.toThrow('Process exit');
 
       const logCalls = logSpy.mock.calls.map(call => call[0]).join(' ');
       expect(logCalls).toContain('react');
@@ -231,8 +257,9 @@ describe('AddCommand', () => {
         throw new Error('Process exit');
       });
 
-      await expect(addCommand('typescript', { force: false }))
-        .rejects.toThrow('Process exit');
+      await expect(addCommand('typescript', { force: false })).rejects.toThrow(
+        'Process exit'
+      );
 
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining('错误详情'),
@@ -245,14 +272,17 @@ describe('AddCommand', () => {
     });
 
     it('should handle template loading errors', async () => {
-      mockGetTemplateList.mockRejectedValue(new Error('Template loading failed'));
+      mockGetTemplateList.mockRejectedValue(
+        new Error('Template loading failed')
+      );
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
       const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
         throw new Error('Process exit');
       });
 
-      await expect(addCommand('typescript', { force: false }))
-        .rejects.toThrow('Process exit');
+      await expect(addCommand('typescript', { force: false })).rejects.toThrow(
+        'Process exit'
+      );
 
       expect(errorSpy).toHaveBeenCalled();
       expect(exitSpy).toHaveBeenCalledWith(1);
@@ -268,8 +298,9 @@ describe('AddCommand', () => {
         throw new Error('Process exit');
       });
 
-      await expect(addCommand('typescript', { force: false }))
-        .rejects.toThrow('Process exit');
+      await expect(addCommand('typescript', { force: false })).rejects.toThrow(
+        'Process exit'
+      );
 
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining('错误详情'),
@@ -288,8 +319,9 @@ describe('AddCommand', () => {
         throw new Error('Process exit');
       });
 
-      await expect(addCommand('typescript', { force: false }))
-        .rejects.toThrow('Process exit');
+      await expect(addCommand('typescript', { force: false })).rejects.toThrow(
+        'Process exit'
+      );
 
       expect(errorSpy).toHaveBeenCalled();
       expect(exitSpy).toHaveBeenCalledWith(1);
@@ -330,7 +362,9 @@ describe('AddCommand', () => {
 
       const logCalls = logSpy.mock.calls.map(call => call[0]).join(' ');
       // Should not suggest react since it's the added template
-      const suggestionLines = logCalls.split('\n').filter(line => line.includes('💡'));
+      const suggestionLines = logCalls
+        .split('\n')
+        .filter(line => line.includes('💡'));
       expect(suggestionLines.join(' ')).not.toContain('react');
 
       logSpy.mockRestore();
@@ -348,4 +382,4 @@ describe('AddCommand', () => {
       logSpy.mockRestore();
     });
   });
-}); 
+});

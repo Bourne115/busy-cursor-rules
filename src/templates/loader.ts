@@ -9,7 +9,6 @@ import type {
   CacheEntry,
   GeneratedFile,
   ProcessMetadata,
-
   VariableDefinition,
 } from '@/types/index';
 import {
@@ -43,16 +42,21 @@ class TemplateCache {
   get<T>(key: string, cache: Map<string, CacheEntry<T>>): T | null {
     const entry = cache.get(key);
     if (!entry) return null;
-    
+
     if (Date.now() > entry.expiresAt) {
       cache.delete(key);
       return null;
     }
-    
+
     return entry.data;
   }
 
-  set<T>(key: string, data: T, cache: Map<string, CacheEntry<T>>, ttl = this.DEFAULT_TTL): void {
+  set<T>(
+    key: string,
+    data: T,
+    cache: Map<string, CacheEntry<T>>,
+    ttl = this.DEFAULT_TTL
+  ): void {
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
@@ -100,7 +104,16 @@ export function validateTemplateConfig(config: any): ValidationResult {
   const warnings: any[] = [];
 
   // 必需字段检查
-  const requiredFields = ['id', 'name', 'description', 'version', 'category', 'author', 'compatibility', 'rules'];
+  const requiredFields = [
+    'id',
+    'name',
+    'description',
+    'version',
+    'category',
+    'author',
+    'compatibility',
+    'rules',
+  ];
   for (const field of requiredFields) {
     if (!config[field]) {
       errors.push({
@@ -112,7 +125,10 @@ export function validateTemplateConfig(config: any): ValidationResult {
   }
 
   // 验证 category
-  if (config.category && !['basic', 'module', 'workflow'].includes(config.category)) {
+  if (
+    config.category &&
+    !['basic', 'module', 'workflow'].includes(config.category)
+  ) {
     errors.push({
       field: 'category',
       message: `无效的分类: ${config.category}`,
@@ -153,24 +169,28 @@ export function validateTemplateConfig(config: any): ValidationResult {
 
   // 验证变量定义
   if (config.variables) {
-    Object.entries(config.variables).forEach(([key, variable]: [string, any]) => {
-      if (typeof variable === 'object' && variable.type) {
-        if (!['string', 'boolean', 'number', 'enum'].includes(variable.type)) {
-          errors.push({
-            field: `variables.${key}.type`,
-            message: `无效的变量类型: ${variable.type}`,
-            code: 'INVALID_VARIABLE_TYPE',
-          });
-        }
-        if (variable.type === 'enum' && !Array.isArray(variable.enum)) {
-          errors.push({
-            field: `variables.${key}.enum`,
-            message: '枚举类型必须提供 enum 数组',
-            code: 'MISSING_ENUM_VALUES',
-          });
+    Object.entries(config.variables).forEach(
+      ([key, variable]: [string, any]) => {
+        if (typeof variable === 'object' && variable.type) {
+          if (
+            !['string', 'boolean', 'number', 'enum'].includes(variable.type)
+          ) {
+            errors.push({
+              field: `variables.${key}.type`,
+              message: `无效的变量类型: ${variable.type}`,
+              code: 'INVALID_VARIABLE_TYPE',
+            });
+          }
+          if (variable.type === 'enum' && !Array.isArray(variable.enum)) {
+            errors.push({
+              field: `variables.${key}.enum`,
+              message: '枚举类型必须提供 enum 数组',
+              code: 'MISSING_ENUM_VALUES',
+            });
+          }
         }
       }
-    });
+    );
   }
 
   // 版本格式警告
@@ -233,10 +253,17 @@ export async function loadTemplateConfig(
 
     return config;
   } catch (error) {
-    if (error instanceof TemplateError || error instanceof TemplateValidationError) {
+    if (
+      error instanceof TemplateError ||
+      error instanceof TemplateValidationError
+    ) {
       throw error;
     }
-    throw new TemplateError(`解析模板配置失败: ${templateId} - ${error}`, templateId, error as Error);
+    throw new TemplateError(
+      `解析模板配置失败: ${templateId} - ${error}`,
+      templateId,
+      error as Error
+    );
   }
 }
 
@@ -252,7 +279,7 @@ export async function getAllTemplateConfigs(
     const errors: string[] = [];
 
     // 并发加载配置文件
-    const loadPromises = configFiles.map(async (file) => {
+    const loadPromises = configFiles.map(async file => {
       const templateId = path.basename(file, '.json');
       try {
         const config = await loadTemplateConfig(templateId, options);
@@ -266,7 +293,7 @@ export async function getAllTemplateConfigs(
     });
 
     const results = await Promise.allSettled(loadPromises);
-    results.forEach((result) => {
+    results.forEach(result => {
       if (result.status === 'fulfilled' && result.value) {
         configs.push(result.value);
       }
@@ -304,19 +331,21 @@ export async function loadRuleFile(
 
   try {
     const content = await fs.readFile(fullPath, 'utf-8');
-    
+
     // 缓存内容
     if (useCache) {
       templateCache.setFile(rulePath, content);
     }
-    
+
     return content;
   } catch (error) {
-    throw new TemplateError(`读取规则文件失败: ${rulePath} - ${error}`, undefined, error as Error);
+    throw new TemplateError(
+      `读取规则文件失败: ${rulePath} - ${error}`,
+      undefined,
+      error as Error
+    );
   }
 }
-
-
 
 /**
  * 增强的条件评估器
@@ -424,8 +453,6 @@ export function processVariables(
   return processedContent;
 }
 
-
-
 /**
  * 处理模板并生成规则文件（增强版）
  */
@@ -436,19 +463,20 @@ export async function processTemplate(
   options: LoadOptions = {}
 ): Promise<TemplateProcessResult> {
   const startTime = Date.now();
-  
+
   try {
     // 加载模板配置
     const config = await loadTemplateConfig(templateId, options);
-
-
 
     const files: GeneratedFile[] = [];
     const errors: string[] = [];
     const warnings: string[] = [];
 
     // 合并变量
-    const allVariables = mergeVariables(config.variables || {}, globalVariables);
+    const allVariables = mergeVariables(
+      config.variables || {},
+      globalVariables
+    );
 
     const variableContext: VariableContext = {
       projectInfo,
@@ -464,10 +492,13 @@ export async function processTemplate(
     };
 
     // 并发处理规则
-    const rulePromises = config.rules.map(async (rule) => {
+    const rulePromises = config.rules.map(async rule => {
       try {
         // 检查条件
-        if (rule.condition && !evaluateCondition(rule.condition, conditionContext)) {
+        if (
+          rule.condition &&
+          !evaluateCondition(rule.condition, conditionContext)
+        ) {
           warnings.push(`跳过规则 ${rule.name}：不满足条件 ${rule.condition}`);
           return null;
         }
@@ -481,7 +512,7 @@ export async function processTemplate(
         // 按照文件路径和模板category分类
         const templateCategory = config.category;
         const templateId = config.id;
-        
+
         // 根据规则文件的路径判断分类
         let outputPath: string;
         if (rule.file.startsWith('basic/')) {
@@ -511,7 +542,7 @@ export async function processTemplate(
     });
 
     const ruleResults = await Promise.allSettled(rulePromises);
-    ruleResults.forEach((result) => {
+    ruleResults.forEach(result => {
       if (result.status === 'fulfilled' && result.value) {
         files.push(result.value);
       } else if (result.status === 'rejected') {
@@ -541,7 +572,7 @@ export async function processTemplate(
     if (error instanceof CompatibilityError) {
       throw error;
     }
-    
+
     return {
       success: false,
       files: [],
@@ -587,8 +618,6 @@ function mergeVariables(
 
   return merged;
 }
-
-
 
 /**
  * 清理缓存

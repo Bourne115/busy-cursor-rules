@@ -1,8 +1,4 @@
-import type {
-  RuleTemplate,
-  ProjectInfo,
-  LoadOptions,
-} from '@/types/index';
+import type { RuleTemplate, ProjectInfo, LoadOptions } from '@/types/index';
 import {
   loadTemplateConfig,
   processTemplate,
@@ -34,7 +30,12 @@ export class TemplateAdapter {
       const config = await loadTemplateConfig(templateId, options);
 
       // 处理模板生成实际内容
-      const result = await processTemplate(templateId, projectInfo, {}, options);
+      const result = await processTemplate(
+        templateId,
+        projectInfo,
+        {},
+        options
+      );
 
       if (!result.success) {
         throw new Error(`模板处理失败: ${result.errors?.join(', ')}`);
@@ -72,13 +73,13 @@ export class TemplateAdapter {
       return legacyTemplate;
     } catch (error) {
       console.error(`适配模板失败 ${templateId}:`, error);
-      
+
       // 返回一个基本的适配版本
-      const fallbackConfig = await loadTemplateConfig(templateId, { 
-        ...options, 
-        validateSchema: false 
+      const fallbackConfig = await loadTemplateConfig(templateId, {
+        ...options,
+        validateSchema: false,
       });
-      
+
       return {
         id: fallbackConfig.id,
         name: fallbackConfig.name,
@@ -106,7 +107,7 @@ export class TemplateAdapter {
     projectInfo: ProjectInfo,
     options: LoadOptions = {}
   ): Promise<RuleTemplate[]> {
-    const adaptPromises = templateIds.map(id => 
+    const adaptPromises = templateIds.map(id =>
       this.adaptToLegacyFormat(id, projectInfo, options)
     );
 
@@ -133,7 +134,7 @@ export class TemplateAdapter {
   ): Promise<RuleTemplate[]> {
     try {
       const configs = await getAllTemplateConfigs(options);
-      
+
       if (!projectInfo) {
         // 创建一个通用的项目信息用于适配
         projectInfo = {
@@ -213,7 +214,11 @@ export async function getTemplate(
     hasTests: false,
   };
 
-  return await templateAdapter.adaptToLegacyFormat(templateId, defaultProjectInfo, options);
+  return await templateAdapter.adaptToLegacyFormat(
+    templateId,
+    defaultProjectInfo,
+    options
+  );
 }
 
 /**
@@ -234,7 +239,11 @@ export async function hasTemplate(
   projectInfo?: ProjectInfo,
   options: LoadOptions = {}
 ): Promise<boolean> {
-  return await templateAdapter.isTemplateAvailable(templateId, projectInfo, options);
+  return await templateAdapter.isTemplateAvailable(
+    templateId,
+    projectInfo,
+    options
+  );
 }
 
 /**
@@ -258,4 +267,4 @@ export async function getTemplateList(
 
 // 导出适配器实例
 export { templateAdapter };
-export default templateAdapter; 
+export default templateAdapter;

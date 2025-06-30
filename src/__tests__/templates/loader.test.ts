@@ -93,7 +93,9 @@ describe('TemplateLoader', () => {
       const result = validateTemplateConfig(invalidConfig);
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors.some(e => e.code === 'MISSING_REQUIRED_FIELD')).toBe(true);
+      expect(result.errors.some(e => e.code === 'MISSING_REQUIRED_FIELD')).toBe(
+        true
+      );
     });
 
     it('should detect invalid category', () => {
@@ -158,8 +160,12 @@ describe('TemplateLoader', () => {
 
       const result = validateTemplateConfig(configWithVariables);
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.code === 'INVALID_VARIABLE_TYPE')).toBe(true);
-      expect(result.errors.some(e => e.code === 'MISSING_ENUM_VALUES')).toBe(true);
+      expect(result.errors.some(e => e.code === 'INVALID_VARIABLE_TYPE')).toBe(
+        true
+      );
+      expect(result.errors.some(e => e.code === 'MISSING_ENUM_VALUES')).toBe(
+        true
+      );
     });
   });
 
@@ -173,27 +179,31 @@ describe('TemplateLoader', () => {
     });
 
     it('should throw error for non-existent template', async () => {
-      await expect(loadTemplateConfig('non-existent')).rejects.toThrow(TemplateError);
+      await expect(loadTemplateConfig('non-existent')).rejects.toThrow(
+        TemplateError
+      );
     });
 
     it('should use cache on subsequent calls', async () => {
       const config1 = await loadTemplateConfig('react');
       const config2 = await loadTemplateConfig('react');
-      
+
       expect(config1).toBe(config2); // Same reference due to caching
     });
 
     it('should skip cache when useCache is false', async () => {
       const config1 = await loadTemplateConfig('react', { useCache: true });
       const config2 = await loadTemplateConfig('react', { useCache: false });
-      
+
       expect(config1).toEqual(config2); // Same content but different objects
     });
 
     it('should validate schema when validateSchema is true', async () => {
       // This would require a malformed config file to test properly
       // For now, we test that it doesn't throw with a valid config
-      await expect(loadTemplateConfig('react', { validateSchema: true })).resolves.toBeDefined();
+      await expect(
+        loadTemplateConfig('react', { validateSchema: true })
+      ).resolves.toBeDefined();
     });
   });
 
@@ -220,20 +230,24 @@ describe('TemplateLoader', () => {
     });
 
     it('should throw error for non-existent rule file', async () => {
-      await expect(loadRuleFile('non-existent.mdc')).rejects.toThrow(TemplateError);
+      await expect(loadRuleFile('non-existent.mdc')).rejects.toThrow(
+        TemplateError
+      );
     });
 
     it('should use cache on subsequent calls', async () => {
       const content1 = await loadRuleFile('basic/general.mdc', true);
       const content2 = await loadRuleFile('basic/general.mdc', true);
-      
+
       expect(content1).toBe(content2);
     });
   });
 
   describe('evaluateCondition', () => {
     it('should evaluate basic conditions', () => {
-      expect(evaluateCondition('hasTypeScript', mockConditionContext)).toBe(true);
+      expect(evaluateCondition('hasTypeScript', mockConditionContext)).toBe(
+        true
+      );
       expect(evaluateCondition('hasTests', mockConditionContext)).toBe(true);
       expect(evaluateCondition('isReact', mockConditionContext)).toBe(true);
       expect(evaluateCondition('isVue', mockConditionContext)).toBe(false);
@@ -246,7 +260,9 @@ describe('TemplateLoader', () => {
     });
 
     it('should handle unknown conditions', () => {
-      expect(evaluateCondition('unknownCondition', mockConditionContext)).toBe(false);
+      expect(evaluateCondition('unknownCondition', mockConditionContext)).toBe(
+        false
+      );
     });
 
     it('should evaluate project type conditions', () => {
@@ -322,7 +338,9 @@ describe('TemplateLoader', () => {
 
     it('should handle missing rule files gracefully', async () => {
       // Test should not throw for missing rule files
-      await expect(processTemplate('react', mockProjectInfo)).resolves.toBeDefined();
+      await expect(
+        processTemplate('react', mockProjectInfo)
+      ).resolves.toBeDefined();
     });
 
     it('should skip rules that do not meet conditions', async () => {
@@ -331,7 +349,7 @@ describe('TemplateLoader', () => {
         hasTypeScript: false,
         language: 'javascript',
       };
-      
+
       const result = await processTemplate('react', noTypeScriptProject);
       expect(result.success).toBe(true);
       // Should have fewer files since TypeScript rules are skipped
@@ -374,7 +392,7 @@ describe('TemplateLoader', () => {
     it('should clear cache correctly', async () => {
       await loadTemplateConfig('react');
       await loadRuleFile('basic/general.mdc');
-      
+
       let stats = getCacheStats();
       expect(stats.templates).toBeGreaterThan(0);
       expect(stats.files).toBeGreaterThan(0);
@@ -388,7 +406,7 @@ describe('TemplateLoader', () => {
     it('should respect cache options', async () => {
       const config1 = await loadTemplateConfig('react', { useCache: false });
       const config2 = await loadTemplateConfig('react', { useCache: false });
-      
+
       // Without caching, objects should be different instances
       expect(config1).not.toBe(config2);
       expect(config1).toEqual(config2);
@@ -397,11 +415,15 @@ describe('TemplateLoader', () => {
 
   describe('error handling', () => {
     it('should handle template validation errors', async () => {
-      await expect(loadTemplateConfig('non-existent')).rejects.toThrow(TemplateError);
+      await expect(loadTemplateConfig('non-existent')).rejects.toThrow(
+        TemplateError
+      );
     });
 
     it('should handle rule file loading errors', async () => {
-      await expect(loadRuleFile('non-existent/file.mdc')).rejects.toThrow(TemplateError);
+      await expect(loadRuleFile('non-existent/file.mdc')).rejects.toThrow(
+        TemplateError
+      );
     });
 
     it('should handle JSON parsing errors gracefully', async () => {
@@ -410,4 +432,4 @@ describe('TemplateLoader', () => {
       await expect(loadTemplateConfig('react')).resolves.toBeDefined();
     });
   });
-}); 
+});

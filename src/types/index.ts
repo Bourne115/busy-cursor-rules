@@ -287,9 +287,16 @@ export interface RecommendationStrategy {
   readonly name: string;
   readonly description: string;
   readonly weight: number;
-  
-  calculateScore(template: TemplateConfiguration, project: ProjectInfo): Promise<number>;
-  getReasons(template: TemplateConfiguration, project: ProjectInfo, score: number): Promise<string[]>;
+
+  calculateScore(
+    template: TemplateConfiguration,
+    project: ProjectInfo
+  ): Promise<number>;
+  getReasons(
+    template: TemplateConfiguration,
+    project: ProjectInfo,
+    score: number
+  ): Promise<string[]>;
 }
 
 /**

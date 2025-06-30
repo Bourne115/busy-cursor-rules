@@ -15,10 +15,18 @@ jest.mock('../../utils/config');
 jest.mock('../../utils/file');
 jest.mock('inquirer');
 
-const mockDetectProject = detectProject as jest.MockedFunction<typeof detectProject>;
-const mockGenerateRules = generateRules as jest.MockedFunction<typeof generateRules>;
-const mockGetTemplateList = getTemplateList as jest.MockedFunction<typeof getTemplateList>;
-const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<typeof getGlobalConfig>;
+const mockDetectProject = detectProject as jest.MockedFunction<
+  typeof detectProject
+>;
+const mockGenerateRules = generateRules as jest.MockedFunction<
+  typeof generateRules
+>;
+const mockGetTemplateList = getTemplateList as jest.MockedFunction<
+  typeof getTemplateList
+>;
+const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<
+  typeof getGlobalConfig
+>;
 const mockExists = exists as jest.MockedFunction<typeof exists>;
 const mockInquirer = inquirer as jest.Mocked<typeof inquirer>;
 
@@ -35,16 +43,32 @@ const mockProjectInfo: ProjectInfo = {
 };
 
 const mockTemplateList = [
-  { id: 'react', name: 'React', description: 'React 组件开发、状态管理、性能优化' },
-  { id: 'typescript', name: 'TypeScript', description: '类型系统、泛型、工具类型最佳实践' },
-  { id: 'testing', name: '测试', description: '单元测试、集成测试、端到端测试' },
-  { id: 'workflow', name: '开发工作流', description: 'Git工作流、CI/CD、代码质量控制' },
+  {
+    id: 'react',
+    name: 'React',
+    description: 'React 组件开发、状态管理、性能优化',
+  },
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    description: '类型系统、泛型、工具类型最佳实践',
+  },
+  {
+    id: 'testing',
+    name: '测试',
+    description: '单元测试、集成测试、端到端测试',
+  },
+  {
+    id: 'workflow',
+    name: '开发工作流',
+    description: 'Git工作流、CI/CD、代码质量控制',
+  },
 ];
 
 describe('InitCommand', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Default mocks
     mockDetectProject.mockResolvedValue(mockProjectInfo);
     mockGetGlobalConfig.mockResolvedValue({
@@ -98,10 +122,11 @@ describe('InitCommand', () => {
 
       await initCommand(options);
 
-      expect(mockGenerateRules).toHaveBeenCalledWith(
-        expect.any(Object),
-        ['react', 'typescript', 'testing']
-      );
+      expect(mockGenerateRules).toHaveBeenCalledWith(expect.any(Object), [
+        'react',
+        'typescript',
+        'testing',
+      ]);
     });
 
     it('should use dependency-based recommendations for non-interactive mode', async () => {
@@ -171,7 +196,9 @@ describe('InitCommand', () => {
 
   describe('interactive mode', () => {
     it('should show template selection with dependency-based recommendations', async () => {
-      mockInquirer.prompt.mockResolvedValue({ templates: ['react', 'typescript'] });
+      mockInquirer.prompt.mockResolvedValue({
+        templates: ['react', 'typescript'],
+      });
 
       const options: InitOptions = {
         interactive: true,
@@ -218,7 +245,7 @@ describe('InitCommand', () => {
       // Test the validator function
       const promptCall = mockInquirer.prompt.mock.calls[0][0] as any[];
       const validator = promptCall[0].validate;
-      
+
       expect(validator([])).toBe('请至少选择一个模板');
       expect(validator(['react'])).toBe(true);
     });
@@ -350,7 +377,9 @@ describe('InitCommand', () => {
 
   describe('error handling', () => {
     it('should handle project detection errors', async () => {
-      mockDetectProject.mockRejectedValue(new Error('Project detection failed'));
+      mockDetectProject.mockRejectedValue(
+        new Error('Project detection failed')
+      );
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
         throw new Error('Process exit');
@@ -382,7 +411,7 @@ describe('InitCommand', () => {
       await initCommand(options);
 
       expect(warnSpy).toHaveBeenCalled();
-      
+
       consoleSpy.mockRestore();
       warnSpy.mockRestore();
     });
@@ -404,8 +433,8 @@ describe('InitCommand', () => {
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('失败的模板: invalid-template')
       );
-      
+
       warnSpy.mockRestore();
     });
   });
-}); 
+});

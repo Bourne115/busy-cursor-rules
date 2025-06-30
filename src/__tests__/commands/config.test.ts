@@ -1,12 +1,20 @@
 import { configCommand } from '../../commands/config';
-import { getGlobalConfig, saveGlobalConfig, resetConfig } from '../../utils/config';
+import {
+  getGlobalConfig,
+  saveGlobalConfig,
+  resetConfig,
+} from '../../utils/config';
 import type { GlobalConfig } from '../../types/index';
 
 // Mock dependencies
 jest.mock('../../utils/config');
 
-const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<typeof getGlobalConfig>;
-const mockSaveGlobalConfig = saveGlobalConfig as jest.MockedFunction<typeof saveGlobalConfig>;
+const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<
+  typeof getGlobalConfig
+>;
+const mockSaveGlobalConfig = saveGlobalConfig as jest.MockedFunction<
+  typeof saveGlobalConfig
+>;
 const mockResetConfig = resetConfig as jest.MockedFunction<typeof resetConfig>;
 
 // Define ConfigOptions based on command
@@ -26,7 +34,7 @@ const mockGlobalConfig: GlobalConfig = {
 describe('ConfigCommand', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Default mocks
     mockGetGlobalConfig.mockResolvedValue(mockGlobalConfig);
     mockSaveGlobalConfig.mockResolvedValue();
@@ -41,9 +49,15 @@ describe('ConfigCommand', () => {
       await configCommand(options);
 
       expect(mockGetGlobalConfig).toHaveBeenCalled();
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('⚙️ 当前配置'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('preferredTemplates'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('autoUpdate'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('⚙️ 当前配置')
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('preferredTemplates')
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('autoUpdate')
+      );
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('language'));
 
       logSpy.mockRestore();
@@ -55,8 +69,12 @@ describe('ConfigCommand', () => {
       const options: ConfigOptions = {};
       await configCommand(options);
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('💡 配置管理'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('--set key=value'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('💡 配置管理')
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('--set key=value')
+      );
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('--get key'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('--reset'));
 
@@ -84,7 +102,9 @@ describe('ConfigCommand', () => {
       const options: ConfigOptions = { get: 'language' };
       await configCommand(options);
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('language: zh'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('language: zh')
+      );
 
       logSpy.mockRestore();
     });
@@ -95,7 +115,9 @@ describe('ConfigCommand', () => {
       const options: ConfigOptions = { get: 'preferredTemplates' };
       await configCommand(options);
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('preferredTemplates'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('preferredTemplates')
+      );
 
       logSpy.mockRestore();
     });
@@ -106,7 +128,9 @@ describe('ConfigCommand', () => {
       const options: ConfigOptions = { get: 'nonExistent' };
       await configCommand(options);
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('nonExistent: undefined'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('nonExistent: undefined')
+      );
 
       logSpy.mockRestore();
     });
@@ -219,10 +243,10 @@ describe('ConfigCommand', () => {
     });
 
     it('should not call other config operations when reset is true', async () => {
-      const options: ConfigOptions = { 
-        reset: true, 
+      const options: ConfigOptions = {
+        reset: true,
         set: 'language=en',
-        get: 'language' 
+        get: 'language',
       };
       await configCommand(options);
 
@@ -236,10 +260,10 @@ describe('ConfigCommand', () => {
     it('should prioritize reset over set and get', async () => {
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      const options: ConfigOptions = { 
-        reset: true, 
+      const options: ConfigOptions = {
+        reset: true,
         set: 'language=en',
-        get: 'language' 
+        get: 'language',
       };
       await configCommand(options);
 
@@ -254,9 +278,9 @@ describe('ConfigCommand', () => {
     it('should prioritize set over get when both provided', async () => {
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      const options: ConfigOptions = { 
+      const options: ConfigOptions = {
         set: 'language=en',
-        get: 'language' 
+        get: 'language',
       };
       await configCommand(options);
 
@@ -391,4 +415,4 @@ describe('ConfigCommand', () => {
       logSpy.mockRestore();
     });
   });
-}); 
+});

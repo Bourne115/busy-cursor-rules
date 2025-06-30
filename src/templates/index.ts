@@ -17,7 +17,10 @@ import {
 /**
  * 获取模板
  */
-export async function getTemplate(templateId: string, projectInfo?: ProjectInfo): Promise<RuleTemplate> {
+export async function getTemplate(
+  templateId: string,
+  projectInfo?: ProjectInfo
+): Promise<RuleTemplate> {
   try {
     return await getAdaptedTemplate(templateId, projectInfo);
   } catch (error) {
@@ -28,7 +31,9 @@ export async function getTemplate(templateId: string, projectInfo?: ProjectInfo)
 /**
  * 获取所有模板
  */
-export async function getAllTemplates(projectInfo?: ProjectInfo): Promise<RuleTemplate[]> {
+export async function getAllTemplates(
+  projectInfo?: ProjectInfo
+): Promise<RuleTemplate[]> {
   try {
     return await getAllAdaptedTemplates(projectInfo);
   } catch (error) {
@@ -40,7 +45,10 @@ export async function getAllTemplates(projectInfo?: ProjectInfo): Promise<RuleTe
 /**
  * 检查模板是否存在
  */
-export async function hasTemplate(templateId: string, projectInfo?: ProjectInfo): Promise<boolean> {
+export async function hasTemplate(
+  templateId: string,
+  projectInfo?: ProjectInfo
+): Promise<boolean> {
   try {
     return await hasAdaptedTemplate(templateId, projectInfo);
   } catch {

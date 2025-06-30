@@ -15,16 +15,40 @@ interface ListOptions {
 jest.mock('../../templates');
 jest.mock('../../utils/config');
 
-const mockGetTemplateList = getTemplateList as jest.MockedFunction<typeof getTemplateList>;
-const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<typeof getGlobalConfig>;
+const mockGetTemplateList = getTemplateList as jest.MockedFunction<
+  typeof getTemplateList
+>;
+const mockGetGlobalConfig = getGlobalConfig as jest.MockedFunction<
+  typeof getGlobalConfig
+>;
 
 const mockTemplateList = [
-  { id: 'react', name: 'React', description: 'React 组件开发、状态管理、性能优化' },
+  {
+    id: 'react',
+    name: 'React',
+    description: 'React 组件开发、状态管理、性能优化',
+  },
   { id: 'vue', name: 'Vue', description: 'Vue 组件开发、状态管理、路由' },
-  { id: 'node', name: 'Node.js', description: 'Node.js API开发、数据库操作、安全' },
-  { id: 'typescript', name: 'TypeScript', description: '类型系统、泛型、工具类型最佳实践' },
-  { id: 'testing', name: '测试', description: '单元测试、集成测试、端到端测试' },
-  { id: 'workflow', name: '开发工作流', description: 'Git工作流、CI/CD、代码质量控制' },
+  {
+    id: 'node',
+    name: 'Node.js',
+    description: 'Node.js API开发、数据库操作、安全',
+  },
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    description: '类型系统、泛型、工具类型最佳实践',
+  },
+  {
+    id: 'testing',
+    name: '测试',
+    description: '单元测试、集成测试、端到端测试',
+  },
+  {
+    id: 'workflow',
+    name: '开发工作流',
+    description: 'Git工作流、CI/CD、代码质量控制',
+  },
 ];
 
 describe('ListCommand', () => {
@@ -53,7 +77,9 @@ describe('ListCommand', () => {
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('react'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('vue'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('node'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('typescript'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('typescript')
+      );
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('testing'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('workflow'));
 
@@ -66,9 +92,15 @@ describe('ListCommand', () => {
       const options: ListOptions = {};
       await listCommand(options);
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('React 组件开发、状态管理、性能优化'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Vue 组件开发、状态管理、路由'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Node.js API开发、数据库操作、安全'));
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('React 组件开发、状态管理、性能优化')
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Vue 组件开发、状态管理、路由')
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Node.js API开发、数据库操作、安全')
+      );
 
       logSpy.mockRestore();
     });
@@ -169,7 +201,7 @@ describe('ListCommand', () => {
       await listCommand(options);
 
       const logCalls = logSpy.mock.calls.map(call => call[0]).join(' ');
-      
+
       // Should include more details about templates
       expect(logCalls).toContain('模块');
       expect(logCalls).toContain('工作流');
@@ -187,10 +219,10 @@ describe('ListCommand', () => {
 
       expect(logSpy).toHaveBeenCalledTimes(1);
       const output = logSpy.mock.calls[0][0];
-      
+
       // Should be valid JSON
       expect(() => JSON.parse(output)).not.toThrow();
-      
+
       const parsed = JSON.parse(output);
       expect(Array.isArray(parsed)).toBe(true);
       expect(parsed.length).toBe(mockTemplateList.length);
@@ -209,9 +241,13 @@ describe('ListCommand', () => {
 
       const output = logSpy.mock.calls[0][0];
       const parsed = JSON.parse(output);
-      
+
       // Should only include module templates
-      expect(parsed.every((t: any) => ['react', 'vue', 'node', 'typescript'].includes(t.id))).toBe(true);
+      expect(
+        parsed.every((t: any) =>
+          ['react', 'vue', 'node', 'typescript'].includes(t.id)
+        )
+      ).toBe(true);
 
       logSpy.mockRestore();
     });
@@ -301,4 +337,4 @@ describe('ListCommand', () => {
       logSpy.mockRestore();
     });
   });
-}); 
+});

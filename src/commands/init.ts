@@ -61,9 +61,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     } else if (options.interactive === false) {
       // 非交互模式，使用基于项目类型的默认模板
       selectedTemplates = getDefaultTemplatesForProject(projectInfo);
-      console.log(
-        chalk.blue(`使用默认模板: ${selectedTemplates.join(', ')}`)
-      );
+      console.log(chalk.blue(`使用默认模板: ${selectedTemplates.join(', ')}`));
     } else {
       // 交互式选择模板
       selectedTemplates = await selectTemplates(projectInfo);
@@ -80,19 +78,17 @@ export async function initCommand(options: InitOptions): Promise<void> {
     // 生成规则
     const generateSpinner = ora('生成规则文件...').start();
     let actualAppliedTemplates: string[] = [];
-    
+
     try {
       const result = await generateRules(context, selectedTemplates);
       actualAppliedTemplates = result.successfulTemplates;
-      
+
       if (result.failedTemplates.length > 0) {
         generateSpinner.warn(chalk.yellow('部分规则生成失败'));
         console.warn(
           chalk.yellow(`失败的模板: ${result.failedTemplates.join(', ')}`)
         );
-        console.warn(
-          chalk.yellow('成功的规则仍可正常使用')
-        );
+        console.warn(chalk.yellow('成功的规则仍可正常使用'));
       } else {
         generateSpinner.succeed(chalk.green('规则文件生成完成！'));
       }
@@ -146,42 +142,67 @@ function displayProjectAnalysis(projectInfo: any): void {
 function getDefaultTemplatesForProject(projectInfo: any): string[] {
   const templates: string[] = [];
   const allDependencies = [
-    ...projectInfo.dependencies, 
-    ...projectInfo.devDependencies
+    ...projectInfo.dependencies,
+    ...projectInfo.devDependencies,
   ].map((dep: string) => dep.toLowerCase());
 
   // 基于依赖分析推荐技术栈模板
-  if (allDependencies.some(dep => 
-    dep.includes('react') || dep.includes('next') || dep.includes('gatsby')
-  )) {
+  if (
+    allDependencies.some(
+      dep =>
+        dep.includes('react') || dep.includes('next') || dep.includes('gatsby')
+    )
+  ) {
     templates.push('react');
   }
 
-  if (allDependencies.some(dep => 
-    dep.includes('vue') || dep.includes('nuxt') || dep.includes('quasar')
-  )) {
+  if (
+    allDependencies.some(
+      dep =>
+        dep.includes('vue') || dep.includes('nuxt') || dep.includes('quasar')
+    )
+  ) {
     templates.push('vue');
   }
 
-  if (allDependencies.some(dep => 
-    dep.includes('express') || dep.includes('koa') || dep.includes('fastify') || 
-    dep.includes('nestjs') || dep.includes('@nestjs') || dep.includes('hapi')
-  ) || projectInfo.type === 'node') {
+  if (
+    allDependencies.some(
+      dep =>
+        dep.includes('express') ||
+        dep.includes('koa') ||
+        dep.includes('fastify') ||
+        dep.includes('nestjs') ||
+        dep.includes('@nestjs') ||
+        dep.includes('hapi')
+    ) ||
+    projectInfo.type === 'node'
+  ) {
     templates.push('node');
   }
 
   // 基于项目特征和依赖推荐通用模板
-  if (projectInfo.hasTypeScript || 
-      allDependencies.some(dep => dep.includes('typescript') || dep.includes('@types/'))) {
+  if (
+    projectInfo.hasTypeScript ||
+    allDependencies.some(
+      dep => dep.includes('typescript') || dep.includes('@types/')
+    )
+  ) {
     templates.push('typescript');
   }
 
-  if (projectInfo.hasTests || 
-      allDependencies.some(dep => 
-        dep.includes('jest') || dep.includes('vitest') || dep.includes('cypress') || 
-        dep.includes('playwright') || dep.includes('mocha') || dep.includes('jasmine') ||
+  if (
+    projectInfo.hasTests ||
+    allDependencies.some(
+      dep =>
+        dep.includes('jest') ||
+        dep.includes('vitest') ||
+        dep.includes('cypress') ||
+        dep.includes('playwright') ||
+        dep.includes('mocha') ||
+        dep.includes('jasmine') ||
         dep.includes('@testing-library')
-      )) {
+    )
+  ) {
     templates.push('testing');
   }
 
@@ -203,10 +224,13 @@ async function selectTemplates(projectInfo: any): Promise<string[]> {
       name: 'templates',
       message: '选择要使用的规则模板 (✓ 标记的是基于项目依赖的建议):',
       choices: availableTemplates.map((template: any) => {
-        const isRecommended = isTemplateRecommendedForProject(template.id, projectInfo);
-        
+        const isRecommended = isTemplateRecommendedForProject(
+          template.id,
+          projectInfo
+        );
+
         return {
-          name: isRecommended 
+          name: isRecommended
             ? `${chalk.green('✓')} ${template.name} - ${template.description} ${chalk.gray('(建议)')}`
             : `  ${template.name} - ${template.description}`,
           value: template.id,
@@ -216,7 +240,7 @@ async function selectTemplates(projectInfo: any): Promise<string[]> {
       validate: (input: string[]) => {
         return input.length > 0 ? true : '请至少选择一个模板';
       },
-    }
+    },
   ]);
 
   return answers.templates;
@@ -225,60 +249,70 @@ async function selectTemplates(projectInfo: any): Promise<string[]> {
 /**
  * 判断模板是否推荐给当前项目
  */
-function isTemplateRecommendedForProject(templateId: string, projectInfo: any): boolean {
+function isTemplateRecommendedForProject(
+  templateId: string,
+  projectInfo: any
+): boolean {
   const allDependencies = [
-    ...projectInfo.dependencies, 
-    ...projectInfo.devDependencies
+    ...projectInfo.dependencies,
+    ...projectInfo.devDependencies,
   ].map((dep: string) => dep.toLowerCase());
 
   // 基于项目依赖进行智能推荐
   switch (templateId) {
     case 'react':
-      return allDependencies.some(dep => 
-        dep.includes('react') || 
-        dep.includes('next') || 
-        dep.includes('gatsby')
+      return allDependencies.some(
+        dep =>
+          dep.includes('react') ||
+          dep.includes('next') ||
+          dep.includes('gatsby')
       );
-    
+
     case 'vue':
-      return allDependencies.some(dep => 
-        dep.includes('vue') || 
-        dep.includes('nuxt') || 
-        dep.includes('quasar')
+      return allDependencies.some(
+        dep =>
+          dep.includes('vue') || dep.includes('nuxt') || dep.includes('quasar')
       );
-    
+
     case 'node':
-      return allDependencies.some(dep => 
-        dep.includes('express') || 
-        dep.includes('koa') || 
-        dep.includes('fastify') || 
-        dep.includes('nestjs') ||
-        dep.includes('@nestjs') ||
-        dep.includes('hapi')
-      ) || projectInfo.type === 'node';
-    
+      return (
+        allDependencies.some(
+          dep =>
+            dep.includes('express') ||
+            dep.includes('koa') ||
+            dep.includes('fastify') ||
+            dep.includes('nestjs') ||
+            dep.includes('@nestjs') ||
+            dep.includes('hapi')
+        ) || projectInfo.type === 'node'
+      );
+
     case 'typescript':
-      return projectInfo.hasTypeScript || 
-             allDependencies.some(dep => 
-               dep.includes('typescript') || 
-               dep.includes('@types/')
-             );
-    
+      return (
+        projectInfo.hasTypeScript ||
+        allDependencies.some(
+          dep => dep.includes('typescript') || dep.includes('@types/')
+        )
+      );
+
     case 'testing':
-      return projectInfo.hasTests || 
-             allDependencies.some(dep => 
-               dep.includes('jest') || 
-               dep.includes('vitest') || 
-               dep.includes('cypress') || 
-               dep.includes('playwright') ||
-               dep.includes('mocha') ||
-               dep.includes('jasmine') ||
-               dep.includes('@testing-library')
-             );
-    
+      return (
+        projectInfo.hasTests ||
+        allDependencies.some(
+          dep =>
+            dep.includes('jest') ||
+            dep.includes('vitest') ||
+            dep.includes('cypress') ||
+            dep.includes('playwright') ||
+            dep.includes('mocha') ||
+            dep.includes('jasmine') ||
+            dep.includes('@testing-library')
+        )
+      );
+
     case 'workflow':
       return true; // 工作流对所有项目都有价值
-    
+
     default:
       return false;
   }

@@ -39,15 +39,15 @@ export async function addCommand(
     // 验证规则是否存在
     const availableTemplates = await getTemplateList();
     const template = availableTemplates.find(t => t.id === ruleName);
-    
+
     if (!template) {
       spinner.fail(chalk.red(`规则 "${ruleName}" 不存在`));
-      
+
       console.log(chalk.yellow('\n📋 可用的规则:'));
       availableTemplates.forEach(t => {
         console.log(`  • ${chalk.blue(t.id)} - ${t.name}`);
       });
-      
+
       process.exit(1);
     }
 
@@ -61,7 +61,6 @@ export async function addCommand(
 
     // 显示相关建议
     displayRelatedSuggestions(template, projectInfo, availableTemplates);
-
   } catch (error) {
     spinner.fail(chalk.red('添加规则失败'));
     console.error(
@@ -79,56 +78,84 @@ function displayRuleInfo(template: any, projectInfo: any): void {
   console.log(chalk.cyan(`\n📋 规则信息: ${template.id}`));
   console.log(`  名称: ${chalk.bold(template.name)}`);
   console.log(`  描述: ${template.description}`);
-  
+
   // 显示项目兼容性
   const isRelevant = isTemplateRelevantForProject(template.id, projectInfo);
-  console.log(`  兼容性: ${isRelevant ? chalk.green('✓ 适用') : chalk.yellow('? 通用')}`);
+  console.log(
+    `  兼容性: ${isRelevant ? chalk.green('✓ 适用') : chalk.yellow('? 通用')}`
+  );
 }
 
 /**
  * 显示相关建议
  */
 function displayRelatedSuggestions(
-  addedTemplate: any, 
-  projectInfo: any, 
+  addedTemplate: any,
+  projectInfo: any,
   availableTemplates: any[]
 ): void {
-  const suggestions = getRelatedTemplates(addedTemplate.id, projectInfo, availableTemplates);
-  
+  const suggestions = getRelatedTemplates(
+    addedTemplate.id,
+    projectInfo,
+    availableTemplates
+  );
+
   if (suggestions.length > 0) {
     console.log(chalk.cyan('\n💡 您可能还需要这些规则:'));
     suggestions.slice(0, 3).forEach(template => {
-      const relevance = isTemplateRelevantForProject(template.id, projectInfo) ? '适用' : '通用';
-      console.log(`  • ${chalk.blue(template.id)} - ${template.name} ${chalk.gray(`(${relevance})`)}`);
+      const relevance = isTemplateRelevantForProject(template.id, projectInfo)
+        ? '适用'
+        : '通用';
+      console.log(
+        `  • ${chalk.blue(template.id)} - ${template.name} ${chalk.gray(`(${relevance})`)}`
+      );
     });
   }
 
-  console.log(chalk.gray('\n提示: 使用 cursor-rules add <rule-name> 添加更多规则'));
+  console.log(
+    chalk.gray('\n提示: 使用 cursor-rules add <rule-name> 添加更多规则')
+  );
 }
 
 /**
  * 获取相关模板建议
  */
 function getRelatedTemplates(
-  addedTemplateId: string, 
-  projectInfo: any, 
+  addedTemplateId: string,
+  projectInfo: any,
   availableTemplates: any[]
 ): any[] {
   const related: any[] = [];
-  
+
   // 根据添加的模板推荐相关模板
   switch (addedTemplateId) {
     case 'react':
-      related.push(...availableTemplates.filter(t => ['typescript', 'testing'].includes(t.id)));
+      related.push(
+        ...availableTemplates.filter(t =>
+          ['typescript', 'testing'].includes(t.id)
+        )
+      );
       break;
     case 'vue':
-      related.push(...availableTemplates.filter(t => ['typescript', 'testing'].includes(t.id)));
+      related.push(
+        ...availableTemplates.filter(t =>
+          ['typescript', 'testing'].includes(t.id)
+        )
+      );
       break;
     case 'node':
-      related.push(...availableTemplates.filter(t => ['typescript', 'testing'].includes(t.id)));
+      related.push(
+        ...availableTemplates.filter(t =>
+          ['typescript', 'testing'].includes(t.id)
+        )
+      );
       break;
     case 'typescript':
-      related.push(...availableTemplates.filter(t => ['testing', 'workflow'].includes(t.id)));
+      related.push(
+        ...availableTemplates.filter(t =>
+          ['testing', 'workflow'].includes(t.id)
+        )
+      );
       break;
     default:
       // 为其他模板推荐工作流规范
@@ -154,7 +181,10 @@ function getRelatedTemplates(
 /**
  * 判断模板是否与当前项目相关
  */
-function isTemplateRelevantForProject(templateId: string, projectInfo: any): boolean {
+function isTemplateRelevantForProject(
+  templateId: string,
+  projectInfo: any
+): boolean {
   switch (templateId) {
     case 'react':
       return projectInfo.type === 'react';

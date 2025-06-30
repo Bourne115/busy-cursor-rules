@@ -9,7 +9,7 @@ const mockFs = fs as jest.Mocked<typeof fs>;
 describe('ProjectDetector', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock process.cwd
     jest.spyOn(process, 'cwd').mockReturnValue('/test/project');
   });
@@ -21,15 +21,15 @@ describe('ProjectDetector', () => {
   describe('React project detection', () => {
     it('should detect React project with TypeScript', async () => {
       const packageJson = {
-        dependencies: { 
+        dependencies: {
           react: '^18.0.0',
-          'react-dom': '^18.0.0'
+          'react-dom': '^18.0.0',
         },
-        devDependencies: { 
+        devDependencies: {
           typescript: '^5.0.0',
           '@types/react': '^18.0.0',
-          '@types/react-dom': '^18.0.0'
-        }
+          '@types/react-dom': '^18.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -39,7 +39,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('pnpm-lock.yaml')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -55,13 +55,13 @@ describe('ProjectDetector', () => {
 
     it('should detect React project with JavaScript', async () => {
       const packageJson = {
-        dependencies: { 
+        dependencies: {
           react: '^18.0.0',
-          'react-dom': '^18.0.0'
+          'react-dom': '^18.0.0',
         },
-        devDependencies: { 
-          jest: '^29.0.0'
-        }
+        devDependencies: {
+          jest: '^29.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -70,7 +70,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('yarn.lock')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -84,10 +84,10 @@ describe('ProjectDetector', () => {
 
     it('should detect Next.js project', async () => {
       const packageJson = {
-        dependencies: { 
+        dependencies: {
           next: '^14.0.0',
-          react: '^18.0.0'
-        }
+          react: '^18.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -96,7 +96,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('next.config.js')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -109,13 +109,13 @@ describe('ProjectDetector', () => {
   describe('Vue project detection', () => {
     it('should detect Vue 3 project', async () => {
       const packageJson = {
-        dependencies: { 
-          vue: '^3.3.0'
+        dependencies: {
+          vue: '^3.3.0',
         },
-        devDependencies: { 
+        devDependencies: {
           '@vitejs/plugin-vue': '^4.0.0',
-          vite: '^4.0.0'
-        }
+          vite: '^4.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -123,7 +123,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -135,9 +135,9 @@ describe('ProjectDetector', () => {
 
     it('should detect Nuxt project', async () => {
       const packageJson = {
-        dependencies: { 
-          nuxt: '^3.0.0'
-        }
+        dependencies: {
+          nuxt: '^3.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -146,7 +146,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('nuxt.config.ts')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -159,14 +159,14 @@ describe('ProjectDetector', () => {
   describe('Node.js project detection', () => {
     it('should detect Express project', async () => {
       const packageJson = {
-        dependencies: { 
+        dependencies: {
           express: '^4.18.0',
-          cors: '^2.8.5'
+          cors: '^2.8.5',
         },
-        devDependencies: { 
+        devDependencies: {
           '@types/express': '^4.17.0',
-          nodemon: '^3.0.0'
-        }
+          nodemon: '^3.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -174,7 +174,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -187,12 +187,12 @@ describe('ProjectDetector', () => {
     it('should detect generic Node.js project', async () => {
       const packageJson = {
         main: 'index.js',
-        scripts: { 
-          start: 'node index.js'
+        scripts: {
+          start: 'node index.js',
         },
-        dependencies: { 
-          lodash: '^4.17.0'
-        }
+        dependencies: {
+          lodash: '^4.17.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -200,7 +200,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -220,7 +220,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('pnpm-lock.yaml')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -237,7 +237,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('yarn.lock')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -253,7 +253,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -265,10 +265,10 @@ describe('ProjectDetector', () => {
   describe('language detection', () => {
     it('should detect TypeScript from dependencies', async () => {
       const packageJson = {
-        devDependencies: { 
+        devDependencies: {
           typescript: '^5.0.0',
-          '@types/node': '^20.0.0'
-        }
+          '@types/node': '^20.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -277,7 +277,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('tsconfig.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -295,7 +295,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('tsconfig.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -311,7 +311,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -324,10 +324,10 @@ describe('ProjectDetector', () => {
   describe('test framework detection', () => {
     it('should detect Jest', async () => {
       const packageJson = {
-        devDependencies: { 
+        devDependencies: {
           jest: '^29.0.0',
-          '@testing-library/react': '^13.0.0'
-        }
+          '@testing-library/react': '^13.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -335,7 +335,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -345,9 +345,9 @@ describe('ProjectDetector', () => {
 
     it('should detect Vitest', async () => {
       const packageJson = {
-        devDependencies: { 
-          vitest: '^1.0.0'
-        }
+        devDependencies: {
+          vitest: '^1.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -355,7 +355,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -365,9 +365,9 @@ describe('ProjectDetector', () => {
 
     it('should detect Cypress', async () => {
       const packageJson = {
-        devDependencies: { 
-          cypress: '^13.0.0'
-        }
+        devDependencies: {
+          cypress: '^13.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -375,7 +375,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -388,19 +388,22 @@ describe('ProjectDetector', () => {
     it('should throw error when project directory does not exist', async () => {
       mockFs.pathExists.mockImplementation(() => Promise.resolve(false));
 
-      await expect(detectProject('/non/existent/path'))
-        .rejects.toThrow('项目目录不存在');
+      await expect(detectProject('/non/existent/path')).rejects.toThrow(
+        '项目目录不存在'
+      );
     });
 
     it('should throw error when package.json is not found', async () => {
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
         const pathStr = path.toString();
-        if (pathStr.includes('/non/existent/path')) return Promise.resolve(true);
+        if (pathStr.includes('/non/existent/path'))
+          return Promise.resolve(true);
         return Promise.resolve(false);
       });
 
-      await expect(detectProject('/non/existent/path'))
-        .rejects.toThrow('未找到 package.json 文件');
+      await expect(detectProject('/non/existent/path')).rejects.toThrow(
+        '未找到 package.json 文件'
+      );
     });
 
     it('should handle malformed package.json gracefully', async () => {
@@ -409,16 +412,17 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockRejectedValue(new Error('Invalid JSON'));
 
-      await expect(detectProject('/test/project'))
-        .rejects.toThrow('package.json 文件格式错误');
+      await expect(detectProject('/test/project')).rejects.toThrow(
+        'package.json 文件格式错误'
+      );
     });
 
     it('should handle missing dependencies gracefully', async () => {
       const packageJson = {
-        name: 'test-project'
+        name: 'test-project',
         // missing dependencies and devDependencies
       };
 
@@ -427,7 +431,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -442,8 +446,9 @@ describe('ProjectDetector', () => {
         return Promise.reject(new Error('Permission denied'));
       });
 
-      await expect(detectProject('/test/project'))
-        .rejects.toThrow('项目检测失败');
+      await expect(detectProject('/test/project')).rejects.toThrow(
+        '项目检测失败'
+      );
     });
   });
 
@@ -454,9 +459,9 @@ describe('ProjectDetector', () => {
           start: 'react-scripts start',
           build: 'react-scripts build',
           test: 'react-scripts test',
-          eject: 'react-scripts eject'
+          eject: 'react-scripts eject',
         },
-        dependencies: { react: '^18.0.0' }
+        dependencies: { react: '^18.0.0' },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -464,7 +469,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -480,7 +485,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/custom/project/path');
@@ -492,9 +497,9 @@ describe('ProjectDetector', () => {
       const packageJson = {
         repository: {
           type: 'git',
-          url: 'https://github.com/user/repo.git'
+          url: 'https://github.com/user/repo.git',
         },
-        dependencies: {}
+        dependencies: {},
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -502,7 +507,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('package.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -516,8 +521,8 @@ describe('ProjectDetector', () => {
       const packageJson = {
         workspaces: ['packages/*'],
         devDependencies: {
-          lerna: '^7.0.0'
-        }
+          lerna: '^7.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -526,7 +531,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('lerna.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -538,11 +543,11 @@ describe('ProjectDetector', () => {
       const packageJson = {
         dependencies: {
           react: '^18.0.0',
-          express: '^4.18.0'
+          express: '^4.18.0',
         },
         devDependencies: {
-          typescript: '^5.0.0'
-        }
+          typescript: '^5.0.0',
+        },
       };
 
       mockFs.pathExists.mockImplementation((path: string | Buffer) => {
@@ -551,7 +556,7 @@ describe('ProjectDetector', () => {
         if (pathStr.includes('tsconfig.json')) return Promise.resolve(true);
         return Promise.resolve(false);
       });
-      
+
       mockFs.readJSON.mockResolvedValue(packageJson);
 
       const result = await detectProject('/test/project');
@@ -563,4 +568,4 @@ describe('ProjectDetector', () => {
       expect(result.dependencies).toContain('express');
     });
   });
-}); 
+});

@@ -98,12 +98,14 @@ describe('Template System', () => {
     expect(list[0]).toHaveProperty('id');
     expect(list[0]).toHaveProperty('name');
     expect(list[0]).toHaveProperty('description');
-    
+
     // 验证具体的模板
     const reactTemplate = list.find(t => t.id === 'react');
     expect(reactTemplate).toBeDefined();
     expect(reactTemplate?.name).toBe('React');
-    expect(reactTemplate?.description).toBe('React 组件开发、状态管理、性能优化');
+    expect(reactTemplate?.description).toBe(
+      'React 组件开发、状态管理、性能优化'
+    );
   });
 
   test('should handle template with project info', async () => {

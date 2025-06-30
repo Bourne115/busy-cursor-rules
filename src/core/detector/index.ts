@@ -149,7 +149,7 @@ function detectFramework(
  */
 export function getRecommendedTemplates(projectInfo: ProjectInfo): string[] {
   console.warn('getRecommendedTemplates 已弃用，请使用新的推荐系统');
-  
+
   const templates: string[] = ['basic']; // 基础规则总是推荐
 
   switch (projectInfo.type) {
