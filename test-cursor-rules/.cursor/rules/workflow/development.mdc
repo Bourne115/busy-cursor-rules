@@ -1,0 +1,666 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# 开发工作流程规范
+
+## Git 工作流程
+
+### 分支策略
+采用 Git Flow 简化版本，适合中小型项目：
+
+**主要分支：**
+- `main` - 主分支，保持稳定可发布状态
+- `develop` - 开发分支，集成所有功能开发
+
+**辅助分支：**
+- `feature/*` - 功能开发分支
+- `hotfix/*` - 紧急修复分支
+- `release/*` - 发布准备分支
+
+### 分支命名规范
+```bash
+# 功能开发分支
+feature/user-authentication
+feature/payment-integration
+feature/dashboard-redesign
+
+# 修复分支
+hotfix/critical-security-fix
+hotfix/payment-error-fix
+
+# 发布分支
+release/v1.2.0
+release/v2.0.0-beta
+```
+
+### 标准开发流程
+
+#### 1. 功能开发流程
+```bash
+# 1. 从develop分支创建功能分支
+git checkout develop
+git pull origin develop
+git checkout -b feature/user-authentication
+
+# 2. 开发过程中定期提交
+git add .
+git commit -m "feat: 添加用户登录验证逻辑"
+
+# 3. 定期同步develop分支的更新
+git checkout develop
+git pull origin develop
+git checkout feature/user-authentication
+git rebase develop
+
+# 4. 开发完成后推送分支
+git push origin feature/user-authentication
+
+# 5. 创建 Pull Request
+# 在 GitHub/GitLab 上创建 PR，请求合并到 develop
+
+# 6. 代码审查通过后合并
+git checkout develop
+git pull origin develop
+git branch -d feature/user-authentication
+```
+
+#### 2. 发布流程
+```bash
+# 1. 从develop创建发布分支
+git checkout develop
+git pull origin develop
+git checkout -b release/v1.2.0
+
+# 2. 发布准备（版本号更新、文档更新等）
+npm version minor  # 更新package.json版本号
+git add .
+git commit -m "chore: 准备发布 v1.2.0"
+
+# 3. 合并到main分支
+git checkout main
+git pull origin main
+git merge release/v1.2.0
+git tag v1.2.0
+git push origin main --tags
+
+# 4. 合并回develop分支
+git checkout develop
+git merge release/v1.2.0
+git push origin develop
+
+# 5. 删除发布分支
+git branch -d release/v1.2.0
+git push origin --delete release/v1.2.0
+```
+
+#### 3. 紧急修复流程
+```bash
+# 1. 从main分支创建修复分支
+git checkout main
+git pull origin main
+git checkout -b hotfix/critical-security-fix
+
+# 2. 快速修复
+git add .
+git commit -m "fix: 修复关键安全漏洞"
+
+# 3. 合并到main并发布
+git checkout main
+git merge hotfix/critical-security-fix
+git tag v1.2.1
+git push origin main --tags
+
+# 4. 合并回develop
+git checkout develop
+git merge hotfix/critical-security-fix
+git push origin develop
+
+# 5. 清理
+git branch -d hotfix/critical-security-fix
+```
+
+## 提交信息规范
+
+### Conventional Commits 格式
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### 提交类型说明
+- `feat`: 新功能
+- `fix`: 错误修复
+- `docs`: 文档更新
+- `style`: 代码格式调整（不影响功能）
+- `refactor`: 代码重构（既不是新增功能，也不是修复bug）
+- `test`: 添加或修改测试
+- `chore`: 杂务任务（构建、工具配置等）
+- `perf`: 性能优化
+- `ci`: CI/CD相关修改
+
+### 提交信息示例
+```bash
+# 好的提交信息
+git commit -m "feat(auth): 添加OAuth2.0社交登录支持"
+git commit -m "fix(payment): 修复支付金额计算精度问题"
+git commit -m "docs: 更新API文档的认证部分"
+git commit -m "test(user): 添加用户注册流程的集成测试"
+
+# 详细提交信息
+git commit -m "feat(dashboard): 添加实时数据图表组件
+
+- 集成Chart.js库用于数据可视化
+- 支持折线图、柱状图、饼图三种类型
+- 添加图表数据刷新和导出功能
+- 优化移动端响应式显示
+
+Closes #123"
+```
+
+## 代码审查规范
+
+### Pull Request 规范
+
+#### PR 标题格式
+```
+<type>: <description>
+
+# 示例
+feat: 添加用户个人资料编辑功能
+fix: 修复购物车数量计算错误
+refactor: 重构用户权限验证逻辑
+```
+
+#### PR 描述模板
+```markdown
+## 📋 变更描述
+简要描述本次变更的内容和目的
+
+## 🔧 变更类型
+- [ ] 新功能 (feature)
+- [ ] 错误修复 (bug fix)
+- [ ] 代码重构 (refactoring)
+- [ ] 文档更新 (documentation)
+- [ ] 性能优化 (performance)
+- [ ] 测试相关 (test)
+
+## 📊 影响范围
+- [ ] 前端界面
+- [ ] 后端API
+- [ ] 数据库结构
+- [ ] 第三方集成
+- [ ] 配置文件
+
+## 🧪 测试情况
+- [ ] 单元测试已通过
+- [ ] 集成测试已通过
+- [ ] 手动测试已完成
+- [ ] 回归测试无问题
+
+## 📸 截图/演示
+如果是UI相关变更，请附上截图或GIF演示
+
+## 🔗 相关Issue
+Closes #issue_number
+
+## 📝 附加信息
+其他需要说明的信息
+```
+
+### 代码审查清单
+
+#### 代码质量检查
+- [ ] 代码逻辑清晰，易于理解
+- [ ] 变量和函数命名有意义
+- [ ] 没有明显的性能问题
+- [ ] 错误处理适当
+- [ ] 安全性考虑充分
+
+#### 技术规范检查
+- [ ] 符合项目代码风格
+- [ ] TypeScript类型定义完整
+- [ ] 单元测试覆盖充分
+- [ ] 文档和注释清晰
+- [ ] 没有代码重复
+
+#### 业务逻辑检查
+- [ ] 功能实现符合需求
+- [ ] 边界情况处理正确
+- [ ] 用户体验良好
+- [ ] 向后兼容性考虑
+
+## CI/CD 流水线
+
+### GitHub Actions 配置
+
+#### 持续集成流水线
+```yaml
+# .github/workflows/ci.yml
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Run tests
+        run: npm run test:coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-files
+          path: dist/
+```
+
+#### 持续部署流水线
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to production
+        run: npm run deploy
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+```
+
+### 自动化测试策略
+
+#### 测试金字塔
+```
+    /\        E2E Tests (少量，慢速，昂贵)
+   /  \       - 关键用户流程
+  /____\      - 跨浏览器兼容性
+ /      \     
+/________\    Integration Tests (适中)
+/          \  - API集成测试
+/____________\ - 组件集成测试
+
+   Unit Tests (大量，快速，便宜)
+   - 纯函数测试
+   - 组件单元测试
+   - 工具函数测试
+```
+
+#### 测试配置
+```json
+// package.json
+{
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:integration": "jest --config jest.integration.config.js"
+  }
+}
+```
+
+## 代码质量控制
+
+### ESLint 配置
+```javascript
+// .eslintrc.js
+module.exports = {
+  extends: [
+    'eslint:recommended',
+    '@typescript-eslint/recommended',
+    'prettier'
+  ],
+  rules: {
+    'no-console': 'warn',
+    'no-debugger': 'error',
+    'prefer-const': 'error',
+    '@typescript-eslint/no-unused-vars': 'error',
+    '@typescript-eslint/explicit-function-return-type': 'warn'
+  }
+};
+```
+
+### Prettier 配置
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false
+}
+```
+
+### Husky Git Hooks
+```json
+// package.json
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "pre-push": "npm test"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write",
+      "git add"
+    ],
+    "*.{json,md,yml}": [
+      "prettier --write",
+      "git add"
+    ]
+  }
+}
+```
+
+## 环境管理
+
+### 多环境配置
+```
+# 环境层级
+development   # 开发环境
+staging      # 预发布环境  
+production   # 生产环境
+```
+
+### 环境变量管理
+```bash
+# .env.development
+NODE_ENV=development
+API_BASE_URL=http://localhost:3001/api
+DATABASE_URL=postgresql://localhost/myapp_dev
+LOG_LEVEL=debug
+
+# .env.staging
+NODE_ENV=staging
+API_BASE_URL=https://api-staging.example.com
+DATABASE_URL=postgresql://staging-db/myapp
+LOG_LEVEL=info
+
+# .env.production
+NODE_ENV=production
+API_BASE_URL=https://api.example.com
+DATABASE_URL=postgresql://prod-db/myapp
+LOG_LEVEL=error
+```
+
+### 部署配置
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=myapp
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+## 发布管理
+
+### 语义化版本
+遵循 [Semantic Versioning](https://semver.org/) 规范：
+
+- **MAJOR** (主版本号): 不兼容的API变更
+- **MINOR** (次版本号): 向下兼容的功能性新增
+- **PATCH** (修订号): 向下兼容的问题修正
+
+```bash
+# 版本更新示例
+npm version patch   # 1.0.0 -> 1.0.1 (bug修复)
+npm version minor   # 1.0.1 -> 1.1.0 (新功能)
+npm version major   # 1.1.0 -> 2.0.0 (破坏性变更)
+
+# 预发布版本
+npm version prerelease         # 1.0.0 -> 1.0.1-0
+npm version prerelease --preid=beta  # 1.0.0 -> 1.0.1-beta.0
+```
+
+### 变更日志
+维护 `CHANGELOG.md` 文件，记录版本变更：
+
+```markdown
+# 更新日志
+
+## [Unreleased]
+
+## [1.2.0] - 2023-12-01
+### 新增
+- 添加用户头像上传功能
+- 支持多语言国际化
+
+### 修改  
+- 优化登录页面UI设计
+- 更新API响应格式
+
+### 修复
+- 修复移动端布局问题
+- 解决内存泄漏问题
+
+### 移除
+- 移除废弃的旧版API
+
+## [1.1.0] - 2023-11-15
+### 新增
+- 添加用户权限管理
+- 集成第三方支付
+```
+
+### 发布检查清单
+
+#### 发布前检查
+- [ ] 所有测试通过
+- [ ] 代码审查完成
+- [ ] 文档更新完整
+- [ ] 版本号正确更新
+- [ ] 变更日志已更新
+- [ ] 依赖安全检查通过
+
+#### 发布后验证
+- [ ] 生产环境部署成功
+- [ ] 关键功能验证正常
+- [ ] 性能指标无异常
+- [ ] 错误日志监控正常
+- [ ] 用户反馈收集机制正常
+
+## 监控和反馈
+
+### 错误监控
+```typescript
+// 错误上报配置
+interface ErrorReport {
+  message: string;
+  stack?: string;
+  url: string;
+  userAgent: string;
+  userId?: string;
+  timestamp: number;
+  metadata?: Record<string, any>;
+}
+
+class ErrorReporter {
+  static report(error: Error, metadata?: Record<string, any>) {
+    const report: ErrorReport = {
+      message: error.message,
+      stack: error.stack,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      timestamp: Date.now(),
+      metadata
+    };
+
+    // 发送到监控服务
+    fetch('/api/errors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(report)
+    });
+  }
+}
+
+// 全局错误处理
+window.addEventListener('error', (event) => {
+  ErrorReporter.report(event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  ErrorReporter.report(new Error(event.reason));
+});
+```
+
+### 性能监控
+```typescript
+// 性能指标收集
+interface PerformanceMetrics {
+  pageLoadTime: number;
+  domContentLoaded: number;
+  firstContentfulPaint: number;
+  largestContentfulPaint: number;
+  cumulativeLayoutShift: number;
+}
+
+class PerformanceMonitor {
+  static collect(): PerformanceMetrics {
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    
+    return {
+      pageLoadTime: navigation.loadEventEnd - navigation.navigationStart,
+      domContentLoaded: navigation.domContentLoadedEventEnd - navigation.navigationStart,
+      firstContentfulPaint: this.getFCP(),
+      largestContentfulPaint: this.getLCP(),
+      cumulativeLayoutShift: this.getCLS()
+    };
+  }
+
+  private static getFCP(): number {
+    const entries = performance.getEntriesByName('first-contentful-paint');
+    return entries.length > 0 ? entries[0].startTime : 0;
+  }
+
+  private static getLCP(): number {
+    // 实现LCP测量逻辑
+    return 0;
+  }
+
+  private static getCLS(): number {
+    // 实现CLS测量逻辑
+    return 0;
+  }
+}
+```
+
+通过遵循这些开发工作流程规范，团队可以建立高效、可靠的开发流程，确保代码质量和项目的长期维护性。根据团队规模和项目特点，可以适当调整具体的流程和工具配置。

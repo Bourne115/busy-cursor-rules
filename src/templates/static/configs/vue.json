@@ -1,0 +1,49 @@
+{
+  "id": "vue",
+  "name": "Vue",
+  "description": "Vue 组件开发、状态管理、路由",
+  "version": "1.0.0",
+  "category": "module",
+  "tags": ["vue", "javascript", "typescript", "frontend", "spa"],
+  "author": "@qile-c/cursor-rules-cli",
+  "compatibility": {
+    "projectTypes": ["vue", "nuxt"],
+    "languages": ["javascript", "typescript"],
+    "frameworks": ["vue", "Vue", "vue3", "nuxt", "Nuxt"]
+  },
+  "rules": [
+    {
+      "name": "通用编程规范",
+      "file": "basic/general.mdc",
+      "required": true
+    },
+    {
+      "name": "TypeScript开发规范",
+      "file": "basic/typescript.mdc",
+      "required": false,
+      "condition": "hasTypeScript"
+    },
+    {
+      "name": "Vue组件开发规范",
+      "file": "vue/components.mdc",
+      "required": true
+    },
+    {
+      "name": "Vue路由规范",
+      "file": "vue/router.mdc",
+      "required": false
+    },
+    {
+      "name": "Vue状态管理规范",
+      "file": "vue/state-management.mdc",
+      "required": false
+    }
+  ],
+  "dependencies": [],
+  "npmDependencies": ["@vue/cli", "vue-router", "pinia"],
+  "variables": {
+    "VUE_VERSION": "3",
+    "ROUTER_MODE": "history",
+    "STATE_MANAGER": "pinia"
+  }
+}

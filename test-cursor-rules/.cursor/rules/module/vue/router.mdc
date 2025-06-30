@@ -1,0 +1,511 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Vue 路由规范
+
+## Vue Router 基础配置
+
+### 路由配置结构
+```typescript
+// src/router/index.ts
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('@/views/Home.vue'),
+    meta: {
+      title: '首页',
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('@/views/Dashboard.vue'),
+    meta: {
+      title: '仪表板',
+      requiresAuth: true
+    },
+    beforeEnter: (to, from, next) => {
+      // 路由级别的守卫
+      next()
+    }
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    } else {
+      return { top: 0 }
+    }
+  }
+})
+
+export default router
+```
+
+## 路由守卫
+
+### 全局守卫
+```typescript
+import { useAuthStore } from '@/stores/auth'
+
+// 全局前置守卫
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
+
+  // 设置页面标题
+  document.title = to.meta.title as string || 'Vue App'
+
+  // 身份验证检查
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    next('/login')
+    return
+  }
+
+  // 权限检查
+  if (to.meta.requiredPermissions) {
+    const hasPermission = authStore.hasPermissions(to.meta.requiredPermissions as string[])
+    if (!hasPermission) {
+      next('/403')
+      return
+    }
+  }
+
+  next()
+})
+
+// 全局后置守卫
+router.afterEach((to, from, failure) => {
+  if (failure) {
+    console.error('路由导航失败:', failure)
+  }
+
+  // 路由变更埋点
+  analytics.track('page_view', {
+    path: to.path,
+    name: to.name
+  })
+})
+```
+
+### 组件内守卫
+```vue
+<script setup lang="ts">
+import { onBeforeRouteEnter, onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'
+
+// 进入路由前
+onBeforeRouteEnter((to, from, next) => {
+  // 预加载数据
+  next()
+})
+
+// 路由更新时
+onBeforeRouteUpdate(async (to, from) => {
+  // 路由参数变化时的处理
+  await fetchData(to.params.id)
+})
+
+// 离开路由前
+onBeforeRouteLeave((to, from, next) => {
+  if (hasUnsavedChanges.value) {
+    const answer = window.confirm('有未保存的更改，确定要离开吗？')
+    if (!answer) return false
+  }
+  next()
+})
+</script>
+```
+
+## 动态路由和懒加载
+
+### 路由懒加载
+```typescript
+const routes: RouteRecordRaw[] = [
+  // 基础懒加载
+  {
+    path: '/users',
+    component: () => import('@/views/Users.vue')
+  },
+
+  // 命名块懒加载
+  {
+    path: '/admin',
+    components: {
+      default: () => import('@/views/AdminLayout.vue'),
+      sidebar: () => import('@/components/AdminSidebar.vue')
+    }
+  },
+
+  // 错误处理
+  {
+    path: '/error',
+    component: () => import('@/views/Error.vue').catch(() => import('@/views/ErrorFallback.vue'))
+  }
+]
+```
+
+### 动态路由
+```typescript
+// 添加动态路由
+const addUserRoutes = (userRole: string) => {
+  if (userRole === 'admin') {
+    router.addRoute({
+      path: '/admin-panel',
+      name: 'AdminPanel',
+      component: () => import('@/views/AdminPanel.vue'),
+      meta: { requiresAuth: true, role: 'admin' }
+    })
+  }
+}
+
+// 移除路由
+const removeUserRoutes = () => {
+  if (router.hasRoute('AdminPanel')) {
+    router.removeRoute('AdminPanel')
+  }
+}
+```
+
+## 路由参数和查询
+
+### 路由参数处理
+```vue
+<script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router'
+import { watch } from 'vue'
+
+const route = useRoute()
+const router = useRouter()
+
+// 监听路由参数变化
+watch(
+  () => route.params.id,
+  async (newId, oldId) => {
+    if (newId !== oldId) {
+      await loadUserData(newId as string)
+    }
+  },
+  { immediate: true }
+)
+
+// 程序化导航
+const goToUser = (userId: string) => {
+  router.push({
+    name: 'UserDetail',
+    params: { id: userId },
+    query: { tab: 'profile' }
+  })
+}
+
+// 路由替换
+const replaceCurrentRoute = () => {
+  router.replace({
+    ...route,
+    query: { ...route.query, updated: Date.now() }
+  })
+}
+</script>
+```
+
+### 查询参数管理
+```typescript
+// composables/useQueryParams.ts
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+export function useQueryParams() {
+  const route = useRoute()
+  const router = useRouter()
+
+  const updateQuery = (newQuery: Record<string, any>) => {
+    router.push({
+      query: { ...route.query, ...newQuery }
+    })
+  }
+
+  const removeQuery = (keys: string[]) => {
+    const query = { ...route.query }
+    keys.forEach(key => delete query[key])
+    router.push({ query })
+  }
+
+  const getQuery = (key: string, defaultValue?: any) => {
+    return route.query[key] || defaultValue
+  }
+
+  return {
+    query: computed(() => route.query),
+    updateQuery,
+    removeQuery,
+    getQuery
+  }
+}
+```
+
+## 嵌套路由
+
+### 嵌套路由配置
+```typescript
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/user/:id',
+    component: () => import('@/views/User.vue'),
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/UserProfile.vue')
+      },
+      {
+        path: 'settings',
+        component: () => import('@/views/UserSettings.vue')
+      },
+      {
+        path: 'orders',
+        component: () => import('@/views/UserOrders.vue')
+      }
+    ]
+  }
+]
+```
+
+### 嵌套路由组件
+```vue
+<!-- User.vue -->
+<template>
+  <div class="user-layout">
+    <UserHeader :user="user" />
+
+    <nav class="user-nav">
+      <RouterLink :to="`/user/${user.id}`">资料</RouterLink>
+      <RouterLink :to="`/user/${user.id}/settings`">设置</RouterLink>
+      <RouterLink :to="`/user/${user.id}/orders`">订单</RouterLink>
+    </nav>
+
+    <!-- 嵌套路由出口 -->
+    <RouterView :user="user" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+const user = ref(null)
+
+onMounted(async () => {
+  user.value = await fetchUser(route.params.id)
+})
+</script>
+```
+
+## 路由元信息和权限
+
+### 路由元信息定义
+```typescript
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string
+    requiresAuth?: boolean
+    requiredPermissions?: string[]
+    layout?: string
+    keepAlive?: boolean
+    breadcrumb?: BreadcrumbItem[]
+  }
+}
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/dashboard',
+    component: () => import('@/views/Dashboard.vue'),
+    meta: {
+      title: '仪表板',
+      requiresAuth: true,
+      requiredPermissions: ['dashboard.view'],
+      layout: 'default',
+      keepAlive: true,
+      breadcrumb: [
+        { name: '首页', path: '/' },
+        { name: '仪表板', path: '/dashboard' }
+      ]
+    }
+  }
+]
+```
+
+### 权限控制
+```typescript
+// utils/permission.ts
+export const checkPermission = (
+  userPermissions: string[],
+  requiredPermissions: string[]
+): boolean => {
+  return requiredPermissions.every(permission =>
+    userPermissions.includes(permission)
+  )
+}
+
+// 路由守卫中使用
+router.beforeEach((to, from, next) => {
+  const { user } = useAuthStore()
+
+  if (to.meta.requiredPermissions) {
+    const hasPermission = checkPermission(
+      user.permissions,
+      to.meta.requiredPermissions
+    )
+
+    if (!hasPermission) {
+      next('/403')
+      return
+    }
+  }
+
+  next()
+})
+```
+
+## 路由过渡动画
+
+### 路由过渡配置
+```vue
+<template>
+  <RouterView v-slot="{ Component, route }">
+    <Transition
+      :name="route.meta.transition || 'fade'"
+      mode="out-in"
+      appear
+    >
+      <KeepAlive
+        :include="keepAliveRoutes"
+        :max="10"
+      >
+        <component :is="Component" :key="route.path" />
+      </KeepAlive>
+    </Transition>
+  </RouterView>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+
+const keepAliveRoutes = computed(() => {
+  // 从路由元信息中获取需要缓存的路由
+  return route.matched
+    .filter(route => route.meta.keepAlive)
+    .map(route => route.name)
+})
+</script>
+
+<style>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-enter-from {
+  transform: translateX(100%);
+}
+
+.slide-leave-to {
+  transform: translateX(-100%);
+}
+</style>
+```
+
+## 路由错误处理
+
+### 错误路由配置
+```typescript
+const routes: RouteRecordRaw[] = [
+  // 404 页面
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/NotFound.vue')
+  },
+
+  // 403 页面
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/Forbidden.vue')
+  },
+
+  // 500 页面
+  {
+    path: '/500',
+    name: 'ServerError',
+    component: () => import('@/views/ServerError.vue')
+  }
+]
+
+// 错误处理
+router.onError((error) => {
+  console.error('路由错误:', error)
+
+  if (error.message.includes('Loading chunk')) {
+    // 处理代码分割加载失败
+    window.location.reload()
+  }
+})
+```
+
+### 路由数据预加载
+```typescript
+// composables/useRouteData.ts
+export function useRouteData<T>(
+  fetcher: (route: RouteLocationNormalized) => Promise<T>
+) {
+  const route = useRoute()
+  const data = ref<T | null>(null)
+  const loading = ref(false)
+  const error = ref<Error | null>(null)
+
+  const load = async (targetRoute = route) => {
+    loading.value = true
+    error.value = null
+
+    try {
+      data.value = await fetcher(targetRoute)
+    } catch (err) {
+      error.value = err as Error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 监听路由变化
+  watch(route, load, { immediate: true })
+
+  return {
+    data: readonly(data),
+    loading: readonly(loading),
+    error: readonly(error),
+    reload: () => load()
+  }
+}
+```

@@ -1,0 +1,10 @@
+dist
+node_modules
+*.d.ts
+*.json
+*.md
+*.yml
+*.yaml
+*.toml
+*.ini
+*.conf

@@ -1,0 +1,1061 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Node.js 安全防护规范
+
+## 应用安全基础
+
+### 安全中间件配置
+```typescript
+// src/middleware/security.ts
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
+import cors from 'cors'
+import compression from 'compression'
+
+export const securityMiddleware = {
+  // 安全头部设置
+  helmet: helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    }
+  }),
+
+  // 跨域配置
+  cors: cors({
+    origin: (origin, callback) => {
+      const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000']
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error('Not allowed by CORS'))
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  }),
+
+  // 限流配置
+  rateLimit: rateLimit({
+    windowMs: 15 * 60 * 1000, // 15分钟
+    max: 100, // 限制每个IP
+    message: {
+      error: 'Too many requests from this IP, please try again later.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+
+  // 压缩响应
+  compression: compression({
+    level: 6,
+    threshold: 1024
+  })
+}
+```
+
+### 环境变量安全
+```typescript
+// src/config/environment.ts
+import { cleanEnv, str, port, bool, url } from 'envalid'
+
+export const env = cleanEnv(process.env, {
+  NODE_ENV: str({ choices: ['development', 'production', 'test'] }),
+  PORT: port({ default: 3000 }),
+
+  // 数据库配置
+  DATABASE_URL: url(),
+  DATABASE_SSL: bool({ default: false }),
+
+  // JWT配置
+  JWT_SECRET: str({ minLength: 32 }),
+  JWT_EXPIRES_IN: str({ default: '7d' }),
+
+  // 第三方服务
+  REDIS_URL: url({ default: 'redis://localhost:6379' }),
+  EMAIL_SERVICE_API_KEY: str(),
+
+  // 安全配置
+  ALLOWED_ORIGINS: str({ default: 'http://localhost:3000' }),
+  BCRYPT_ROUNDS: str({ default: '12' }),
+})
+
+// 验证必需的环境变量
+export const validateEnvironment = () => {
+  const requiredVars = [
+    'DATABASE_URL',
+    'JWT_SECRET',
+    'EMAIL_SERVICE_API_KEY'
+  ]
+
+  const missing = requiredVars.filter(key => !process.env[key])
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+  }
+}
+```
+
+## 身份认证与授权
+
+### JWT 安全实现
+```typescript
+// src/services/auth.service.ts
+import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
+import crypto from 'crypto'
+import { env } from '../config/environment'
+
+interface TokenPayload {
+  userId: string
+  email: string
+  role: string
+  iat?: number
+  exp?: number
+}
+
+export class AuthService {
+  private readonly JWT_SECRET = env.JWT_SECRET
+  private readonly JWT_EXPIRES_IN = env.JWT_EXPIRES_IN
+  private readonly REFRESH_TOKEN_EXPIRES_IN = '30d'
+
+  /**
+   * 生成访问令牌
+   */
+  generateAccessToken(payload: Omit<TokenPayload, 'iat' | 'exp'>): string {
+    return jwt.sign(payload, this.JWT_SECRET, {
+      expiresIn: this.JWT_EXPIRES_IN,
+      algorithm: 'HS256'
+    })
+  }
+
+  /**
+   * 生成刷新令牌
+   */
+  generateRefreshToken(userId: string): string {
+    const payload = { userId, type: 'refresh' }
+    return jwt.sign(payload, this.JWT_SECRET, {
+      expiresIn: this.REFRESH_TOKEN_EXPIRES_IN,
+      algorithm: 'HS256'
+    })
+  }
+
+  /**
+   * 验证令牌
+   */
+  verifyToken(token: string): TokenPayload {
+    try {
+      const decoded = jwt.verify(token, this.JWT_SECRET) as TokenPayload
+      return decoded
+    } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new AppError('Token expired', 401, 'TOKEN_EXPIRED')
+      } else if (error instanceof jwt.JsonWebTokenError) {
+        throw new AppError('Invalid token', 401, 'INVALID_TOKEN')
+      }
+      throw error
+    }
+  }
+
+  /**
+   * 安全密码哈希
+   */
+  async hashPassword(password: string): Promise<string> {
+    const saltRounds = parseInt(env.BCRYPT_ROUNDS)
+    return bcrypt.hash(password, saltRounds)
+  }
+
+  /**
+   * 验证密码
+   */
+  async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+    return bcrypt.compare(password, hashedPassword)
+  }
+
+  /**
+   * 生成安全随机令牌
+   */
+  generateSecureToken(length: number = 32): string {
+    return crypto.randomBytes(length).toString('hex')
+  }
+
+  /**
+   * 验证密码强度
+   */
+  validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
+    const errors: string[] = []
+
+    if (password.length < 8) {
+      errors.push('Password must be at least 8 characters long')
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      errors.push('Password must contain at least one uppercase letter')
+    }
+
+    if (!/[a-z]/.test(password)) {
+      errors.push('Password must contain at least one lowercase letter')
+    }
+
+    if (!/\d/.test(password)) {
+      errors.push('Password must contain at least one number')
+    }
+
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      errors.push('Password must contain at least one special character')
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    }
+  }
+}
+```
+
+### 权限控制系统
+```typescript
+// src/middleware/authorization.ts
+import { Request, Response, NextFunction } from 'express'
+import { AppError } from '../utils/errors'
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string
+    email: string
+    role: string
+    permissions: string[]
+  }
+}
+
+/**
+ * 角色权限矩阵
+ */
+const ROLE_PERMISSIONS = {
+  admin: ['*'],
+  manager: [
+    'users.read',
+    'users.update',
+    'products.read',
+    'products.create',
+    'products.update',
+    'orders.read',
+    'orders.update'
+  ],
+  user: [
+    'profile.read',
+    'profile.update',
+    'orders.read'
+  ]
+} as const
+
+/**
+ * 检查用户权限
+ */
+export const requirePermission = (permission: string) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401)
+    }
+
+    const userPermissions = ROLE_PERMISSIONS[req.user.role as keyof typeof ROLE_PERMISSIONS] || []
+
+    // 管理员拥有所有权限
+    if (userPermissions.includes('*')) {
+      return next()
+    }
+
+    // 检查具体权限
+    if (!userPermissions.includes(permission)) {
+      throw new AppError('Insufficient permissions', 403)
+    }
+
+    next()
+  }
+}
+
+/**
+ * 检查资源所有权
+ */
+export const requireOwnership = (resourceParam: string = 'id') => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401)
+    }
+
+    const resourceId = req.params[resourceParam]
+    const userId = req.user.id
+
+    // 管理员可以访问所有资源
+    if (req.user.role === 'admin') {
+      return next()
+    }
+
+    // 检查资源所有权
+    try {
+      const isOwner = await checkResourceOwnership(userId, resourceId, req.baseUrl)
+      if (!isOwner) {
+        throw new AppError('Access denied: not resource owner', 403)
+      }
+      next()
+    } catch (error) {
+      next(error)
+    }
+  }
+}
+
+/**
+ * 检查资源所有权的具体实现
+ */
+async function checkResourceOwnership(
+  userId: string,
+  resourceId: string,
+  resourceType: string
+): Promise<boolean> {
+  // 根据资源类型检查所有权
+  switch (resourceType) {
+    case '/users':
+      return userId === resourceId
+    case '/orders':
+      // 检查订单是否属于用户
+      const order = await OrderModel.findById(resourceId)
+      return order?.userId === userId
+    default:
+      return false
+  }
+}
+```
+
+## 输入验证与清理
+
+### 请求验证中间件
+```typescript
+// src/middleware/validation.ts
+import Joi from 'joi'
+import DOMPurify from 'isomorphic-dompurify'
+import { Request, Response, NextFunction } from 'express'
+
+/**
+ * 输入清理
+ */
+export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
+  // 清理字符串输入
+  const sanitizeObject = (obj: any): any => {
+    if (typeof obj === 'string') {
+      return DOMPurify.sanitize(obj.trim())
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(sanitizeObject)
+    }
+
+    if (obj && typeof obj === 'object') {
+      const sanitized: any = {}
+      for (const [key, value] of Object.entries(obj)) {
+        sanitized[key] = sanitizeObject(value)
+      }
+      return sanitized
+    }
+
+    return obj
+  }
+
+  if (req.body) {
+    req.body = sanitizeObject(req.body)
+  }
+
+  if (req.query) {
+    req.query = sanitizeObject(req.query)
+  }
+
+  next()
+}
+
+/**
+ * 常用验证模式
+ */
+export const validationSchemas = {
+  // 用户注册
+  userRegistration: Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(8).pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/).required(),
+    firstName: Joi.string().min(2).max(50).required(),
+    lastName: Joi.string().min(2).max(50).required(),
+    phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).optional()
+  }),
+
+  // 用户登录
+  userLogin: Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required()
+  }),
+
+  // ID参数
+  mongoId: Joi.object({
+    id: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required()
+  }),
+
+  // 分页查询
+  pagination: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+    sort: Joi.string().optional(),
+    order: Joi.string().valid('asc', 'desc').default('desc')
+  })
+}
+
+/**
+ * SQL注入防护
+ */
+export const preventSQLInjection = (input: string): string => {
+  // 移除或转义危险字符
+  return input
+    .replace(/[';--]/g, '') // 移除SQL注释符号
+    .replace(/(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi, '') // 移除SQL关键词
+}
+
+/**
+ * NoSQL注入防护
+ */
+export const preventNoSQLInjection = (obj: any): any => {
+  if (obj && typeof obj === 'object') {
+    for (const key in obj) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete obj[key]
+      } else if (typeof obj[key] === 'object') {
+        obj[key] = preventNoSQLInjection(obj[key])
+      }
+    }
+  }
+  return obj
+}
+```
+
+### 文件上传安全
+```typescript
+// src/middleware/fileUpload.ts
+import multer from 'multer'
+import path from 'path'
+import crypto from 'crypto'
+import { AppError } from '../utils/errors'
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+const ALLOWED_DOCUMENT_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+
+/**
+ * 安全的文件名生成
+ */
+const generateSafeFilename = (originalname: string): string => {
+  const ext = path.extname(originalname).toLowerCase()
+  const randomName = crypto.randomBytes(16).toString('hex')
+  return `${randomName}${ext}`
+}
+
+/**
+ * 文件类型验证
+ */
+const fileFilter = (allowedTypes: string[]) => {
+  return (req: any, file: Express.Multer.File, callback: multer.FileFilterCallback) => {
+    if (!allowedTypes.includes(file.mimetype)) {
+      const error = new AppError(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`, 400)
+      return callback(error)
+    }
+    callback(null, true)
+  }
+}
+
+/**
+ * 图片上传配置
+ */
+export const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, callback) => {
+      callback(null, 'uploads/images/')
+    },
+    filename: (req, file, callback) => {
+      callback(null, generateSafeFilename(file.originalname))
+    }
+  }),
+  fileFilter: fileFilter(ALLOWED_IMAGE_TYPES),
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 5
+  }
+})
+
+/**
+ * 文档上传配置
+ */
+export const documentUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, callback) => {
+      callback(null, 'uploads/documents/')
+    },
+    filename: (req, file, callback) => {
+      callback(null, generateSafeFilename(file.originalname))
+    }
+  }),
+  fileFilter: fileFilter(ALLOWED_DOCUMENT_TYPES),
+  limits: {
+    fileSize: MAX_FILE_SIZE * 2, // 10MB for documents
+    files: 3
+  }
+})
+
+/**
+ * 文件病毒扫描（集成第三方服务）
+ */
+export const scanFile = async (filePath: string): Promise<boolean> => {
+  try {
+    // 这里可以集成如 ClamAV 或其他病毒扫描服务
+    // 暂时返回 true 表示文件安全
+    return true
+  } catch (error) {
+    console.error('File scan failed:', error)
+    return false
+  }
+}
+```
+
+## 日志记录与监控
+
+### 安全日志系统
+```typescript
+// src/utils/securityLogger.ts
+import winston from 'winston'
+import { Request } from 'express'
+
+// 创建安全日志记录器
+const securityLogger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json(),
+    winston.format.errors({ stack: true })
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: 'logs/security.log',
+      level: 'warn'
+    }),
+    new winston.transports.File({
+      filename: 'logs/security-error.log',
+      level: 'error'
+    })
+  ]
+})
+
+interface SecurityEvent {
+  type: 'login_attempt' | 'login_success' | 'login_failure' | 'suspicious_activity' | 'data_access' | 'permission_denied'
+  userId?: string
+  ip: string
+  userAgent: string
+  endpoint?: string
+  details?: any
+}
+
+/**
+ * 记录安全事件
+ */
+export const logSecurityEvent = (event: SecurityEvent) => {
+  const logData = {
+    timestamp: new Date().toISOString(),
+    ...event
+  }
+
+  switch (event.type) {
+    case 'login_failure':
+    case 'permission_denied':
+    case 'suspicious_activity':
+      securityLogger.warn('Security event', logData)
+      break
+    case 'login_success':
+    case 'data_access':
+      securityLogger.info('Security event', logData)
+      break
+    default:
+      securityLogger.info('Security event', logData)
+  }
+}
+
+/**
+ * 提取请求信息
+ */
+export const extractRequestInfo = (req: Request) => {
+  return {
+    ip: req.ip || req.connection.remoteAddress || 'unknown',
+    userAgent: req.get('User-Agent') || 'unknown',
+    endpoint: `${req.method} ${req.path}`
+  }
+}
+
+/**
+ * 安全中间件：记录请求
+ */
+export const securityLoggingMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const requestInfo = extractRequestInfo(req)
+
+  // 记录敏感端点访问
+  const sensitiveEndpoints = ['/api/auth', '/api/admin', '/api/users']
+  const isSensitive = sensitiveEndpoints.some(endpoint => req.path.startsWith(endpoint))
+
+  if (isSensitive) {
+    logSecurityEvent({
+      type: 'data_access',
+      userId: (req as any).user?.id,
+      ...requestInfo,
+      details: {
+        body: req.method === 'POST' ? req.body : undefined,
+        query: req.query
+      }
+    })
+  }
+
+  next()
+}
+```
+
+### 异常监控
+```typescript
+// src/utils/monitoring.ts
+import { Request, Response, NextFunction } from 'express'
+
+interface SecurityThreat {
+  type: 'brute_force' | 'rate_limit_exceeded' | 'invalid_token' | 'sql_injection' | 'xss_attempt'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  ip: string
+  userAgent: string
+  details: any
+}
+
+/**
+ * 威胁检测系统
+ */
+export class ThreatDetector {
+  private static failedAttempts = new Map<string, number>()
+  private static suspiciousIPs = new Set<string>()
+
+  /**
+   * 检测暴力破解攻击
+   */
+  static detectBruteForce(ip: string, isFailure: boolean) {
+    if (isFailure) {
+      const attempts = this.failedAttempts.get(ip) || 0
+      this.failedAttempts.set(ip, attempts + 1)
+
+      if (attempts >= 5) {
+        this.suspiciousIPs.add(ip)
+        this.reportThreat({
+          type: 'brute_force',
+          severity: 'high',
+          ip,
+          userAgent: '',
+          details: { attempts: attempts + 1 }
+        })
+      }
+    } else {
+      // 成功登录，重置失败次数
+      this.failedAttempts.delete(ip)
+    }
+  }
+
+  /**
+   * 检测可疑请求模式
+   */
+  static detectSuspiciousPattern(req: Request) {
+    const { body, query, params } = req
+    const ip = req.ip
+    const userAgent = req.get('User-Agent') || ''
+
+    // 检测SQL注入尝试
+    const sqlPatterns = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi
+    const checkForSQL = (obj: any): boolean => {
+      if (typeof obj === 'string') {
+        return sqlPatterns.test(obj)
+      }
+      if (obj && typeof obj === 'object') {
+        return Object.values(obj).some(checkForSQL)
+      }
+      return false
+    }
+
+    if (checkForSQL({ ...body, ...query, ...params })) {
+      this.reportThreat({
+        type: 'sql_injection',
+        severity: 'critical',
+        ip,
+        userAgent,
+        details: { endpoint: req.path, payload: { body, query, params } }
+      })
+    }
+
+    // 检测XSS尝试
+    const xssPatterns = /<script|javascript:|onload=|onerror=/gi
+    if (checkForSQL({ ...body, ...query, ...params })) {
+      this.reportThreat({
+        type: 'xss_attempt',
+        severity: 'high',
+        ip,
+        userAgent,
+        details: { endpoint: req.path, payload: { body, query, params } }
+      })
+    }
+  }
+
+  /**
+   * 报告威胁
+   */
+  private static reportThreat(threat: SecurityThreat) {
+    // 记录到安全日志
+    securityLogger.error('Security threat detected', threat)
+
+    // 发送告警（可以集成邮件、短信、Slack等）
+    this.sendAlert(threat)
+
+    // 自动阻止高危IP
+    if (threat.severity === 'critical') {
+      this.blockIP(threat.ip)
+    }
+  }
+
+  /**
+   * 发送安全告警
+   */
+  private static async sendAlert(threat: SecurityThreat) {
+    // 集成告警系统
+    console.error('SECURITY ALERT:', threat)
+  }
+
+  /**
+   * 阻止IP访问
+   */
+  private static blockIP(ip: string) {
+    this.suspiciousIPs.add(ip)
+    // 可以集成防火墙或CDN的IP黑名单
+    console.warn(`IP ${ip} has been blocked due to security threat`)
+  }
+
+  /**
+   * 检查IP是否被阻止
+   */
+  static isBlocked(ip: string): boolean {
+    return this.suspiciousIPs.has(ip)
+  }
+}
+
+/**
+ * 安全监控中间件
+ */
+export const securityMonitoringMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const ip = req.ip
+
+  // 检查IP是否被阻止
+  if (ThreatDetector.isBlocked(ip)) {
+    return res.status(403).json({ error: 'Access denied' })
+  }
+
+  // 检测可疑模式
+  ThreatDetector.detectSuspiciousPattern(req)
+
+  next()
+}
+```
+
+## 数据保护
+
+### 敏感数据加密
+```typescript
+// src/utils/encryption.ts
+import crypto from 'crypto'
+import { env } from '../config/environment'
+
+export class EncryptionService {
+  private readonly algorithm = 'aes-256-gcm'
+  private readonly keyLength = 32
+  private readonly ivLength = 16
+  private readonly tagLength = 16
+
+  /**
+   * 生成加密密钥
+   */
+  private generateKey(secret: string): Buffer {
+    return crypto.scryptSync(secret, 'salt', this.keyLength)
+  }
+
+  /**
+   * 加密数据
+   */
+  encrypt(text: string, secret: string = env.ENCRYPTION_SECRET): string {
+    const key = this.generateKey(secret)
+    const iv = crypto.randomBytes(this.ivLength)
+
+    const cipher = crypto.createCipher(this.algorithm, key)
+    cipher.setAAD(Buffer.from('additional-data'))
+
+    let encrypted = cipher.update(text, 'utf8', 'hex')
+    encrypted += cipher.final('hex')
+
+    const tag = cipher.getAuthTag()
+
+    return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted}`
+  }
+
+  /**
+   * 解密数据
+   */
+  decrypt(encryptedData: string, secret: string = env.ENCRYPTION_SECRET): string {
+    const [ivHex, tagHex, encrypted] = encryptedData.split(':')
+
+    const key = this.generateKey(secret)
+    const iv = Buffer.from(ivHex, 'hex')
+    const tag = Buffer.from(tagHex, 'hex')
+
+    const decipher = crypto.createDecipher(this.algorithm, key)
+    decipher.setAuthTag(tag)
+    decipher.setAAD(Buffer.from('additional-data'))
+
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+    decrypted += decipher.final('utf8')
+
+    return decrypted
+  }
+
+  /**
+   * 哈希敏感数据（不可逆）
+   */
+  hash(data: string): string {
+    return crypto
+      .createHash('sha256')
+      .update(data + env.HASH_SALT)
+      .digest('hex')
+  }
+}
+
+/**
+ * 数据脱敏
+ */
+export class DataMasking {
+  /**
+   * 邮箱脱敏
+   */
+  static maskEmail(email: string): string {
+    const [username, domain] = email.split('@')
+    const maskedUsername = username.substring(0, 2) + '*'.repeat(username.length - 2)
+    return `${maskedUsername}@${domain}`
+  }
+
+  /**
+   * 手机号脱敏
+   */
+  static maskPhone(phone: string): string {
+    return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+  }
+
+  /**
+   * 身份证号脱敏
+   */
+  static maskIDCard(idCard: string): string {
+    return idCard.replace(/(\d{6})\d{8}(\d{4})/, '$1********$2')
+  }
+
+  /**
+   * 银行卡号脱敏
+   */
+  static maskBankCard(cardNumber: string): string {
+    return cardNumber.replace(/(\d{4})\d{8,12}(\d{4})/, '$1****$2')
+  }
+}
+```
+
+### GDPR 合规
+```typescript
+// src/utils/gdpr.ts
+import { EncryptionService } from './encryption'
+
+export interface DataProcessingConsent {
+  userId: string
+  purpose: string
+  granted: boolean
+  timestamp: Date
+  ipAddress: string
+  userAgent: string
+}
+
+export interface DataRetentionPolicy {
+  dataType: string
+  retentionPeriod: number // 天数
+  autoDelete: boolean
+  encryptionRequired: boolean
+}
+
+export class GDPRCompliance {
+  private encryption = new EncryptionService()
+
+  /**
+   * 记录用户同意
+   */
+  async recordConsent(consent: DataProcessingConsent): Promise<void> {
+    // 存储到数据库
+    await ConsentModel.create({
+      ...consent,
+      consentId: crypto.randomUUID(),
+      version: '1.0'
+    })
+  }
+
+  /**
+   * 检查用户是否同意特定数据处理
+   */
+  async hasConsent(userId: string, purpose: string): Promise<boolean> {
+    const consent = await ConsentModel.findOne({
+      userId,
+      purpose,
+      granted: true
+    }).sort({ timestamp: -1 })
+
+    return !!consent
+  }
+
+  /**
+   * 用户数据导出（数据可携带权）
+   */
+  async exportUserData(userId: string): Promise<any> {
+    const userData = {
+      profile: await UserModel.findById(userId).select('-password'),
+      orders: await OrderModel.find({ userId }),
+      preferences: await PreferenceModel.find({ userId }),
+      activityLog: await ActivityModel.find({ userId })
+    }
+
+    // 生成导出文件
+    return {
+      exportDate: new Date(),
+      userId,
+      data: userData,
+      format: 'JSON'
+    }
+  }
+
+  /**
+   * 删除用户数据（被遗忘权）
+   */
+  async deleteUserData(userId: string, reason: string): Promise<void> {
+    const session = await mongoose.startSession()
+
+    try {
+      await session.withTransaction(async () => {
+        // 记录删除操作
+        await DataDeletionLogModel.create({
+          userId,
+          reason,
+          timestamp: new Date(),
+          status: 'completed'
+        })
+
+        // 删除相关数据
+        await UserModel.deleteOne({ _id: userId })
+        await OrderModel.deleteMany({ userId })
+        await PreferenceModel.deleteMany({ userId })
+        await ActivityModel.deleteMany({ userId })
+
+        // 匿名化无法删除的数据
+        await ReviewModel.updateMany(
+          { userId },
+          { userId: 'anonymous', userName: 'Anonymous User' }
+        )
+      })
+    } finally {
+      await session.endSession()
+    }
+  }
+
+  /**
+   * 数据保留策略执行
+   */
+  async enforceRetentionPolicy(): Promise<void> {
+    const policies: DataRetentionPolicy[] = [
+      {
+        dataType: 'activity_logs',
+        retentionPeriod: 90,
+        autoDelete: true,
+        encryptionRequired: false
+      },
+      {
+        dataType: 'user_sessions',
+        retentionPeriod: 30,
+        autoDelete: true,
+        encryptionRequired: false
+      },
+      {
+        dataType: 'payment_data',
+        retentionPeriod: 2555, // 7年
+        autoDelete: false,
+        encryptionRequired: true
+      }
+    ]
+
+    for (const policy of policies) {
+      await this.applyRetentionPolicy(policy)
+    }
+  }
+
+  private async applyRetentionPolicy(policy: DataRetentionPolicy): Promise<void> {
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - policy.retentionPeriod)
+
+    switch (policy.dataType) {
+      case 'activity_logs':
+        if (policy.autoDelete) {
+          await ActivityModel.deleteMany({
+            createdAt: { $lt: cutoffDate }
+          })
+        }
+        break
+
+      case 'user_sessions':
+        if (policy.autoDelete) {
+          await SessionModel.deleteMany({
+            lastAccess: { $lt: cutoffDate }
+          })
+        }
+        break
+
+      case 'payment_data':
+        // 加密而不是删除
+        if (policy.encryptionRequired) {
+          const oldPayments = await PaymentModel.find({
+            createdAt: { $lt: cutoffDate },
+            encrypted: { $ne: true }
+          })
+
+          for (const payment of oldPayments) {
+            payment.cardNumber = this.encryption.encrypt(payment.cardNumber)
+            payment.encrypted = true
+            await payment.save()
+          }
+        }
+        break
+    }
+  }
+}
+```

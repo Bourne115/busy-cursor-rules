@@ -1,0 +1,899 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# TypeScript 开发规范
+
+## 类型系统基础
+
+### 基本类型定义
+```typescript
+// 原始类型
+let name: string = 'TypeScript';
+let age: number = 5;
+let isActive: boolean = true;
+let value: null = null;
+let notDefined: undefined = undefined;
+
+// 数组类型
+let numbers: number[] = [1, 2, 3];
+let strings: Array<string> = ['a', 'b', 'c'];
+let matrix: number[][] = [[1, 2], [3, 4]];
+
+// 对象类型
+let user: {
+  name: string;
+  age: number;
+  email?: string; // 可选属性
+} = {
+  name: 'John',
+  age: 30
+};
+
+// 函数类型
+let greet: (name: string) => string = (name) => `Hello, ${name}!`;
+let calculate: (a: number, b: number) => number = (a, b) => a + b;
+```
+
+### 接口定义规范
+```typescript
+// 基础接口
+interface User {
+  readonly id: string;        // 只读属性
+  name: string;
+  email: string;
+  age?: number;              // 可选属性
+  [key: string]: any;        // 索引签名
+}
+
+// 继承接口
+interface AdminUser extends User {
+  permissions: string[];
+  role: 'admin' | 'superadmin';
+}
+
+// 多重继承
+interface Contact {
+  phone?: string;
+  address?: string;
+}
+
+interface BusinessUser extends User, Contact {
+  company: string;
+  position: string;
+}
+
+// 函数接口
+interface SearchFunction {
+  (source: string, subString: string): boolean;
+}
+
+interface EventHandler<T = any> {
+  (event: T): void;
+}
+
+// 构造函数接口
+interface ClockConstructor {
+  new (hour: number, minute: number): ClockInterface;
+}
+
+interface ClockInterface {
+  tick(): void;
+}
+```
+
+### 类型别名和联合类型
+```typescript
+// 基础类型别名
+type ID = string | number;
+type Status = 'pending' | 'approved' | 'rejected';
+type Theme = 'light' | 'dark' | 'auto';
+
+// 函数类型别名
+type EventCallback<T> = (data: T) => void;
+type AsyncFunction<T, R> = (param: T) => Promise<R>;
+
+// 对象类型别名
+type ApiResponse<T> = {
+  data: T;
+  status: number;
+  message: string;
+  timestamp: string;
+};
+
+type UserPreferences = {
+  theme: Theme;
+  language: 'en' | 'zh' | 'es';
+  notifications: boolean;
+};
+
+// 联合类型
+type StringOrNumber = string | number;
+type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+// 交叉类型
+type UserWithPreferences = User & UserPreferences;
+type AdminWithContact = AdminUser & Contact;
+
+// 条件类型
+type NonNullable<T> = T extends null | undefined ? never : T;
+type ApiResult<T> = T extends string ? { message: T } : { data: T };
+```
+
+## 高级类型技巧
+
+### 泛型设计模式
+```typescript
+// 基础泛型
+class DataStore<T> {
+  private items: T[] = [];
+
+  add(item: T): void {
+    this.items.push(item);
+  }
+
+  get(index: number): T | undefined {
+    return this.items[index];
+  }
+
+  filter(predicate: (item: T) => boolean): T[] {
+    return this.items.filter(predicate);
+  }
+}
+
+// 泛型约束
+interface Lengthwise {
+  length: number;
+}
+
+function logLength<T extends Lengthwise>(arg: T): T {
+  console.log(arg.length);
+  return arg;
+}
+
+// 多泛型参数
+interface KeyValuePair<K, V> {
+  key: K;
+  value: V;
+}
+
+function createPair<K, V>(key: K, value: V): KeyValuePair<K, V> {
+  return { key, value };
+}
+
+// 泛型工厂函数
+function createRepository<T, K extends keyof T>(
+  entityClass: new () => T,
+  idField: K
+) {
+  return {
+    create: (data: Omit<T, K>): T => {
+      const entity = new entityClass();
+      return Object.assign(entity, data);
+    },
+    
+    findById: (id: T[K]): T | undefined => {
+      // 模拟查找逻辑
+      return undefined;
+    }
+  };
+}
+```
+
+### 工具类型应用
+```typescript
+// 基础工具类型
+interface FullUser {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+  address: string;
+  phone: string;
+}
+
+// Partial - 所有属性变为可选
+type PartialUser = Partial<FullUser>;
+function updateUser(id: string, updates: PartialUser): void {
+  // 可以传入任意 FullUser 的子集
+}
+
+// Required - 所有属性变为必需
+type RequiredUser = Required<PartialUser>;
+
+// Pick - 选择指定属性
+type UserSummary = Pick<FullUser, 'id' | 'name' | 'email'>;
+type ContactInfo = Pick<FullUser, 'email' | 'phone' | 'address'>;
+
+// Omit - 排除指定属性
+type CreateUserData = Omit<FullUser, 'id'>;
+type PublicUser = Omit<FullUser, 'email' | 'phone' | 'address'>;
+
+// Record - 创建对象类型
+type UserRoles = Record<string, 'admin' | 'user' | 'guest'>;
+type ErrorMessages = Record<'required' | 'invalid' | 'duplicate', string>;
+
+const validationErrors: ErrorMessages = {
+  required: '此字段是必需的',
+  invalid: '输入格式无效',
+  duplicate: '该值已存在'
+};
+
+// Exclude 和 Extract
+type PrimaryColors = 'red' | 'green' | 'blue';
+type WarmColors = 'red' | 'orange' | 'yellow';
+
+type CoolPrimaryColors = Exclude<PrimaryColors, WarmColors>; // 'green' | 'blue'
+type WarmPrimaryColors = Extract<PrimaryColors, WarmColors>; // 'red'
+
+// ReturnType 和 Parameters
+function getUserById(id: string): Promise<User | null> {
+  return Promise.resolve(null);
+}
+
+type GetUserReturn = ReturnType<typeof getUserById>; // Promise<User | null>
+type GetUserParams = Parameters<typeof getUserById>; // [string]
+```
+
+### 条件类型和映射类型
+```typescript
+// 条件类型
+type IsString<T> = T extends string ? true : false;
+type IsArray<T> = T extends any[] ? true : false;
+
+// 分布式条件类型
+type ToArray<T> = T extends any ? T[] : never;
+type StringOrNumberArray = ToArray<string | number>; // string[] | number[]
+
+// 推断类型
+type ElementType<T> = T extends (infer U)[] ? U : never;
+type StringType = ElementType<string[]>; // string
+
+type PromiseType<T> = T extends Promise<infer U> ? U : never;
+type UserType = PromiseType<Promise<User>>; // User
+
+// 高级映射类型
+type Readonly<T> = {
+  readonly [P in keyof T]: T[P];
+};
+
+type Optional<T, K extends keyof T> = {
+  [P in keyof T]: P extends K ? T[P] | undefined : T[P];
+};
+
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+// 模板字面量类型
+type EmailPrefix = 'user' | 'admin' | 'support';
+type EmailDomain = 'example.com' | 'company.org';
+type EmailAddress = `${EmailPrefix}@${EmailDomain}`;
+
+type EventName<T extends string> = `on${Capitalize<T>}`;
+type ClickHandler = EventName<'click'>; // 'onClick'
+
+// 递归类型
+type JSON = string | number | boolean | null | JSON[] | { [key: string]: JSON };
+
+type Flatten<T> = T extends any[] 
+  ? T[number] extends any[] 
+    ? Flatten<T[number]>
+    : T[number]
+  : T;
+```
+
+## 类和装饰器
+
+### 类定义规范
+```typescript
+// 基础类定义
+abstract class BaseEntity {
+  protected readonly id: string;
+  protected createdAt: Date;
+  protected updatedAt: Date;
+
+  constructor(id: string) {
+    this.id = id;
+    this.createdAt = new Date();
+    this.updatedAt = new Date();
+  }
+
+  abstract validate(): boolean;
+
+  getId(): string {
+    return this.id;
+  }
+
+  touch(): void {
+    this.updatedAt = new Date();
+  }
+}
+
+// 具体实现类
+class User extends BaseEntity {
+  private _name: string;
+  private _email: string;
+  private _status: UserStatus;
+
+  constructor(
+    id: string,
+    name: string,
+    email: string,
+    status: UserStatus = 'active'
+  ) {
+    super(id);
+    this._name = name;
+    this._email = email;
+    this._status = status;
+  }
+
+  // Getter/Setter
+  get name(): string {
+    return this._name;
+  }
+
+  set name(value: string) {
+    if (!value.trim()) {
+      throw new Error('Name cannot be empty');
+    }
+    this._name = value;
+    this.touch();
+  }
+
+  get email(): string {
+    return this._email;
+  }
+
+  // 静态方法
+  static createFromData(data: UserData): User {
+    return new User(data.id, data.name, data.email, data.status);
+  }
+
+  // 实现抽象方法
+  validate(): boolean {
+    return this._name.trim().length > 0 && 
+           this._email.includes('@');
+  }
+
+  // 方法重载
+  findPosts(): Post[];
+  findPosts(published: boolean): Post[];
+  findPosts(published?: boolean): Post[] {
+    // 实现逻辑
+    return [];
+  }
+}
+
+// 接口实现
+interface Serializable {
+  serialize(): string;
+  deserialize(data: string): void;
+}
+
+interface Comparable<T> {
+  compareTo(other: T): number;
+}
+
+class Product implements Serializable, Comparable<Product> {
+  constructor(
+    public readonly id: string,
+    public name: string,
+    public price: number
+  ) {}
+
+  serialize(): string {
+    return JSON.stringify({
+      id: this.id,
+      name: this.name,
+      price: this.price
+    });
+  }
+
+  deserialize(data: string): void {
+    const parsed = JSON.parse(data);
+    this.name = parsed.name;
+    this.price = parsed.price;
+  }
+
+  compareTo(other: Product): number {
+    return this.price - other.price;
+  }
+}
+```
+
+### 装饰器应用
+```typescript
+// 类装饰器
+function Entity(tableName: string) {
+  return function <T extends new (...args: any[]) => {}>(constructor: T) {
+    return class extends constructor {
+      tableName = tableName;
+    };
+  };
+}
+
+// 方法装饰器
+function Log(target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  const method = descriptor.value;
+  
+  descriptor.value = function (...args: any[]) {
+    console.log(`Calling ${propertyName} with args:`, args);
+    const result = method.apply(this, args);
+    console.log(`Method ${propertyName} returned:`, result);
+    return result;
+  };
+}
+
+// 属性装饰器
+function Required(target: any, propertyName: string) {
+  let value: any;
+  
+  const getter = () => value;
+  const setter = (newVal: any) => {
+    if (newVal == null) {
+      throw new Error(`${propertyName} is required`);
+    }
+    value = newVal;
+  };
+  
+  Object.defineProperty(target, propertyName, {
+    get: getter,
+    set: setter,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+// 参数装饰器
+function Validate(target: any, propertyName: string, parameterIndex: number) {
+  // 存储验证信息
+  const existingValidators = Reflect.getMetadata('validators', target) || [];
+  existingValidators.push({ parameterIndex, propertyName });
+  Reflect.defineMetadata('validators', existingValidators, target);
+}
+
+// 应用装饰器
+@Entity('users')
+class UserEntity {
+  @Required
+  name: string;
+
+  @Required
+  email: string;
+
+  @Log
+  updateProfile(@Validate name: string, @Validate email: string): void {
+    this.name = name;
+    this.email = email;
+  }
+}
+```
+
+## 模块系统和命名空间
+
+### 模块导入导出
+```typescript
+// 具名导出
+export const API_VERSION = 'v1';
+export const MAX_RETRY_COUNT = 3;
+
+export interface ApiConfig {
+  baseUrl: string;
+  timeout: number;
+  retryCount: number;
+}
+
+export class ApiClient {
+  constructor(private config: ApiConfig) {}
+
+  async request<T>(url: string): Promise<T> {
+    // 实现逻辑
+    throw new Error('Not implemented');
+  }
+}
+
+export function createApiClient(config: ApiConfig): ApiClient {
+  return new ApiClient(config);
+}
+
+// 默认导出
+export default class Logger {
+  static log(message: string): void {
+    console.log(`[${new Date().toISOString()}] ${message}`);
+  }
+}
+
+// 重新导出
+export { UserService } from './services/UserService';
+export { type User, type UserData } from './types/User';
+export * as utils from './utils/index';
+```
+
+### 模块路径配置
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/types/*": ["src/types/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/services/*": ["src/services/*"],
+      "@/components/*": ["src/components/*"]
+    }
+  }
+}
+```
+
+### 命名空间使用
+```typescript
+// 声明命名空间
+namespace Validation {
+  export interface StringValidator {
+    isAcceptable(s: string): boolean;
+  }
+
+  export class EmailValidator implements StringValidator {
+    isAcceptable(s: string): boolean {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+    }
+  }
+
+  export class PhoneValidator implements StringValidator {
+    isAcceptable(s: string): boolean {
+      return /^\d{10,11}$/.test(s);
+    }
+  }
+}
+
+// 使用命名空间
+const emailValidator = new Validation.EmailValidator();
+const phoneValidator = new Validation.PhoneValidator();
+```
+
+## 类型声明和环境声明
+
+### 声明文件编写
+```typescript
+// types/globals.d.ts
+declare global {
+  interface Window {
+    APP_CONFIG: {
+      apiUrl: string;
+      version: string;
+      features: string[];
+    };
+  }
+
+  namespace NodeJS {
+    interface ProcessEnv {
+      NODE_ENV: 'development' | 'staging' | 'production';
+      API_BASE_URL: string;
+      DATABASE_URL: string;
+      LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
+    }
+  }
+}
+
+// 第三方库声明
+declare module 'some-library' {
+  export function doSomething(value: string): number;
+  export interface Config {
+    timeout: number;
+    retries: number;
+  }
+}
+
+// CSS 模块声明
+declare module '*.module.css' {
+  const classes: { [key: string]: string };
+  export default classes;
+}
+
+declare module '*.module.scss' {
+  const classes: { [key: string]: string };
+  export default classes;
+}
+
+// 图片资源声明
+declare module '*.png' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.jpg' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.svg' {
+  import React from 'react';
+  const SVG: React.VFC<React.SVGProps<SVGSVGElement>>;
+  export default SVG;
+}
+```
+
+### 外部库类型增强
+```typescript
+// 扩展第三方库类型
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: {
+      id: string;
+      email: string;
+      role: string;
+    };
+  }
+}
+
+// 扩展 Array 原型
+declare global {
+  interface Array<T> {
+    groupBy<K extends keyof any>(
+      key: (item: T) => K
+    ): Record<K, T[]>;
+  }
+}
+
+// 实现扩展方法
+Array.prototype.groupBy = function <T, K extends keyof any>(
+  this: T[],
+  key: (item: T) => K
+): Record<K, T[]> {
+  return this.reduce((groups, item) => {
+    const groupKey = key(item);
+    groups[groupKey] = groups[groupKey] || [];
+    groups[groupKey].push(item);
+    return groups;
+  }, {} as Record<K, T[]>);
+};
+```
+
+## 配置和最佳实践
+
+### TSConfig 配置
+```json
+{
+  "compilerOptions": {
+    // 目标和模块
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    // 严格模式
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+
+    // 模块解析
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // 输出配置
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "removeComments": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+
+    // 跳过库检查
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}
+```
+
+### 开发环境配置
+```typescript
+// 开发工具配置
+interface DevConfig {
+  // 热重载
+  hmr: boolean;
+  // 源码映射
+  sourceMap: 'inline' | 'external' | false;
+  // 类型检查
+  typeCheck: boolean;
+  // 错误覆盖层
+  errorOverlay: boolean;
+}
+
+// 生产环境配置
+interface ProdConfig {
+  // 代码压缩
+  minify: boolean;
+  // Tree shaking
+  treeShaking: boolean;
+  // 代码分割
+  codeSplitting: boolean;
+  // 静态分析
+  analyze: boolean;
+}
+
+// 统一配置类型
+type BuildConfig = DevConfig | ProdConfig;
+```
+
+### 类型安全最佳实践
+
+#### 1. 优先使用 unknown 而不是 any
+```typescript
+// ❌ 避免使用 any
+function processData(data: any): any {
+  return data.something.nested;
+}
+
+// ✅ 使用 unknown 并进行类型检查
+function processData(data: unknown): string {
+  if (typeof data === 'object' && data !== null && 'value' in data) {
+    const obj = data as { value: string };
+    return obj.value;
+  }
+  throw new Error('Invalid data format');
+}
+```
+
+#### 2. 使用类型断言时要谨慎
+```typescript
+// ❌ 危险的类型断言
+const user = response.data as User;
+
+// ✅ 使用类型守卫
+function isUser(obj: unknown): obj is User {
+  return typeof obj === 'object' &&
+         obj !== null &&
+         'id' in obj &&
+         'name' in obj &&
+         'email' in obj;
+}
+
+if (isUser(response.data)) {
+  const user = response.data; // 类型安全
+}
+```
+
+#### 3. 利用索引访问类型
+```typescript
+// 获取对象属性类型
+type UserName = User['name']; // string
+type UserAge = User['age']; // number | undefined
+
+// 获取数组元素类型
+type StringArrayElement = string[][number]; // string
+
+// 获取函数返回类型
+type ApiResponse = ReturnType<typeof fetchUsers>; // Promise<User[]>
+```
+
+#### 4. 使用模板字面量类型
+```typescript
+// 创建 CSS 属性类型
+type CSSProperty = `--${string}`;
+type ValidCSSProperty = `--theme-${string}`;
+
+// 创建 API 路径类型
+type ApiPath = `/api/${string}`;
+type UserApiPath = `/api/users/${string}`;
+
+// 版本字符串验证
+type Version = `${number}.${number}.${number}`;
+```
+
+## 性能优化
+
+### 编译性能优化
+```json
+{
+  "compilerOptions": {
+    // 跳过类型检查以提高编译速度
+    "skipLibCheck": true,
+    
+    // 使用增量编译
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    
+    // 禁用不必要的检查
+    "noResolve": false,
+    "isolatedModules": true
+  }
+}
+```
+
+### 类型计算优化
+```typescript
+// ❌ 复杂的递归类型可能导致编译缓慢
+type DeepRequired<T> = {
+  [P in keyof T]-?: T[P] extends object ? DeepRequired<T[P]> : T[P];
+};
+
+// ✅ 限制递归深度
+type DeepRequired<T, D extends number = 5> = D extends 0
+  ? T
+  : {
+      [P in keyof T]-?: T[P] extends object 
+        ? DeepRequired<T[P], Prev<D>>
+        : T[P];
+    };
+
+type Prev<T extends number> = T extends 0 ? 0 : T extends 1 ? 0 : T extends 2 ? 1 : T extends 3 ? 2 : T extends 4 ? 3 : T extends 5 ? 4 : never;
+```
+
+### 构建配置优化
+```typescript
+// webpack.config.ts
+import type { Configuration } from 'webpack';
+
+const config: Configuration = {
+  resolve: {
+    // 优化模块解析
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: [
+          {
+            loader: 'ts-loader',
+            options: {
+              // 仅转译，类型检查由 fork-ts-checker 处理
+              transpileOnly: true,
+            },
+          },
+        ],
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  
+  plugins: [
+    // 在独立进程中进行类型检查
+    new ForkTsCheckerWebpackPlugin({
+      typescript: {
+        diagnosticOptions: {
+          semantic: true,
+          syntactic: true,
+        },
+      },
+    }),
+  ],
+};
+
+export default config;
+```
+
+通过遵循这些 TypeScript 开发规范，可以编写出类型安全、可维护性强、性能优良的代码。记住要根据项目的具体需求调整配置，并在团队中保持一致的编码风格。
+</rewritten_file>

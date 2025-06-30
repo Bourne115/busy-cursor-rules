@@ -1,0 +1,49 @@
+{
+  "id": "node",
+  "name": "Node.js",
+  "description": "API 设计、数据库操作、安全防护",
+  "version": "1.0.0",
+  "category": "module",
+  "tags": ["node", "backend", "api", "express", "typescript", "javascript"],
+  "author": "@qile-c/cursor-rules-cli",
+  "compatibility": {
+    "projectTypes": ["node", "express", "nestjs"],
+    "languages": ["javascript", "typescript"],
+    "frameworks": ["express", "Express", "nestjs", "NestJS", "koa", "fastify"]
+  },
+  "rules": [
+    {
+      "name": "通用编程规范",
+      "file": "basic/general.mdc",
+      "required": true
+    },
+    {
+      "name": "TypeScript开发规范",
+      "file": "basic/typescript.mdc",
+      "required": false,
+      "condition": "hasTypeScript"
+    },
+    {
+      "name": "Node.js API开发规范",
+      "file": "node/api-development.mdc",
+      "required": true
+    },
+    {
+      "name": "Node.js安全防护规范",
+      "file": "node/security.mdc",
+      "required": true
+    },
+    {
+      "name": "数据库集成规范",
+      "file": "node/database.mdc",
+      "required": false
+    }
+  ],
+  "dependencies": [],
+  "npmDependencies": ["express", "cors", "helmet", "dotenv"],
+  "variables": {
+    "RUNTIME": "Node.js",
+    "DEFAULT_PORT": "3000",
+    "API_VERSION": "v1"
+  }
+}

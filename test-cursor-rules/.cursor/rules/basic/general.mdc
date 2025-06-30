@@ -1,0 +1,120 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# 通用编程基础规范
+
+## 项目概述
+
+这是一个 generic 项目，使用 javascript 作为主要开发语言。主要技术栈：
+- **语言**: javascript (ES2022)
+- **运行时**: Browser/Node.js
+- **包管理**: npm
+
+## 代码风格与规范
+
+### 命名规范
+- 使用有意义的变量和函数命名，避免缩写和模糊的名称
+- 类名使用 PascalCase: `UserService`, `DataProcessor`
+- 函数和变量使用 camelCase: `getUserInfo`, `processData`
+- 常量使用 UPPER_SNAKE_CASE: `DEFAULT_CONFIG`, `MAX_RETRIES`
+- 文件名使用 kebab-case: `user-service.ts`, `data-processor.ts`
+
+### 模块导入导出
+```javascript
+// 使用明确的导入语句
+import { specificFunction } from './module-name';
+import type { InterfaceType } from './types';
+
+// 避免默认导出，使用命名导出
+export { UserService };
+export type { UserConfig };
+```
+
+### 代码组织
+- 每个文件应有单一职责，避免超大文件
+- 函数应该单一职责，建议不超过50行
+- 参数不宜过多，超过3个参数考虑使用配置对象
+- 使用有意义的注释说明复杂逻辑和业务规则
+
+### 代码质量
+- 保持代码简洁和可读性
+- 避免深层嵌套，使用早期返回(early return)
+- 使用 const 声明不变的变量，避免使用 var
+- 优先使用函数式编程方法: map, filter, reduce
+
+## 错误处理
+
+### 错误分类和处理
+```javascript
+// 自定义错误类型
+class ValidationError extends Error {
+  constructor(message: string, public field: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+// 统一错误处理
+function handleError(error: Error): void {
+  console.error(`Error: ${error.message}`);
+  if (error instanceof ValidationError) {
+    // 处理验证错误
+  }
+}
+```
+
+### 错误信息规范
+- 使用具体的错误信息，便于调试和用户理解
+- 区分系统错误和用户错误，提供不同的处理方式
+- 避免空的 catch 块，至少要记录错误信息
+- 为错误提供恢复建议或解决方案
+
+## 性能与优化
+
+### 性能考虑
+- 避免不必要的计算和内存分配
+- 合理使用缓存机制
+- 注意避免内存泄漏，及时清理事件监听器
+- 使用异步操作处理 I/O 密集型任务
+
+### 数据处理
+- 处理大量数据时考虑使用流(Stream)
+- 避免同步的文件操作，使用异步版本
+- 合理使用数据结构，Set 用于去重，Map 用于键值映射
+
+## 代码注释与文档
+
+### 注释最佳实践
+```javascript
+/**
+ * 处理用户数据并返回格式化结果
+ * @param userData 用户原始数据
+ * @param options 处理选项
+ * @returns 格式化后的用户信息
+ */
+function processUserData(userData: UserData, options: ProcessOptions): FormattedUser {
+  // 实现逻辑...
+}
+```
+
+### 注释规范
+- 解释"为什么"而不仅仅是"是什么"
+- 复杂算法和业务逻辑必须添加说明注释
+- 保持注释与代码的同步更新
+- 使用 JSDoc 格式为公共 API 添加文档
+
+## 安全最佳实践
+
+### 输入验证
+- 对所有外部输入进行验证
+- 使用参数化查询防止注入攻击
+- 避免在代码中硬编码敏感信息
+- 定期更新依赖包，修复安全漏洞
+
+### 数据处理
+- 敏感数据加密存储
+- 避免在日志中记录敏感信息
+- 实施最小权限原则
+- 使用环境变量管理配置信息

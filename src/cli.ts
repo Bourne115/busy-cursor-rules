@@ -54,9 +54,10 @@ program
 // 列出规则命令
 program
   .command('list')
-  .description('列出所有可用的规则模板')
+  .description('列出所有可用的规则模板（支持智能推荐）')
   .option('-i, --installed', '只显示已安装的规则')
   .option('-c, --category <category>', '按分类筛选')
+  .option('-d, --detailed', '显示详细的推荐信息和匹配度')
   .action(listCommand);
 
 // 配置管理命令

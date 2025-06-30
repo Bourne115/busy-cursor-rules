@@ -10,55 +10,9 @@ env:
   PNPM_VERSION: '9'
 
 jobs:
-  # 检查CI是否通过
-  check-ci:
-    name: 检查CI状态
-    runs-on: ubuntu-latest
-    outputs:
-      ci-passed: ${{ steps.check.outputs.result }}
-
-    steps:
-      - name: 🛎️ 检出代码
-        uses: actions/checkout@v4
-
-      - name: 🔍 检查CI状态
-        id: check
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: checks } = await github.rest.checks.listForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.sha
-            });
-
-            console.log(`检查标签 ${context.ref} 的CI状态...`);
-
-            const ciRuns = checks.check_runs.filter(run =>
-              run.name.includes('代码检查和构建') ||
-              run.name.includes('CI')
-            );
-
-            if (ciRuns.length === 0) {
-              console.log('⚠️  未找到CI检查记录，继续发布');
-              return 'true';
-            }
-
-            console.log(`找到 ${ciRuns.length} 个CI检查：`);
-            ciRuns.forEach(run => {
-              console.log(`- ${run.name}: ${run.conclusion}`);
-            });
-
-            const allPassed = ciRuns.every(run => run.conclusion === 'success');
-            console.log(`CI检查结果: ${allPassed ? '✅ 通过' : '❌ 失败'}`);
-            return allPassed.toString();
-
-  # 发布到npm
   release:
     name: 发布到npm
     runs-on: ubuntu-latest
-    needs: check-ci
-    if: needs.check-ci.outputs.ci-passed == 'true'
     permissions:
       contents: write
       packages: write

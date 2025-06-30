@@ -1,0 +1,40 @@
+{
+  "id": "typescript",
+  "name": "TypeScript",
+  "description": "类型系统、泛型、工具类型最佳实践",
+  "version": "1.0.0",
+  "category": "basic",
+  "tags": ["typescript", "types", "generics", "tooling"],
+  "author": "@qile-c/cursor-rules-cli",
+  "compatibility": {
+    "projectTypes": [
+      "react",
+      "vue",
+      "node",
+      "angular",
+      "next",
+      "nuxt",
+      "generic"
+    ],
+    "languages": ["typescript"],
+    "frameworks": []
+  },
+  "rules": [
+    {
+      "name": "通用编程规范",
+      "file": "basic/general.mdc",
+      "required": true
+    },
+    {
+      "name": "TypeScript开发规范",
+      "file": "basic/typescript.mdc",
+      "required": true
+    }
+  ],
+  "dependencies": [],
+  "variables": {
+    "TYPESCRIPT_VERSION": "5.x",
+    "TARGET": "ES2022",
+    "MODULE_SYSTEM": "ESNext"
+  }
+}

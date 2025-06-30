@@ -1,0 +1,38 @@
+{
+  "id": "react",
+  "name": "React",
+  "description": "React 组件开发、状态管理、性能优化",
+  "version": "1.0.0",
+  "category": "module",
+  "tags": ["react", "jsx", "tsx", "hooks", "components"],
+  "author": "Cursor Rules CLI",
+  "compatibility": {
+    "projectTypes": ["react", "next"],
+    "languages": ["javascript", "typescript"],
+    "frameworks": ["react", "React", "next.js", "Next.js", "gatsby", "Gatsby"]
+  },
+  "rules": [
+    {
+      "name": "通用编程规范",
+      "file": "basic/general.mdc",
+      "required": true
+    },
+    {
+      "name": "TypeScript 规范",
+      "file": "basic/typescript.mdc",
+      "required": true,
+      "condition": "hasTypeScript"
+    },
+    {
+      "name": "React 组件规范",
+      "file": "react/components.mdc",
+      "required": true
+    }
+  ],
+  "dependencies": ["typescript"],
+  "variables": {
+    "PROJECT_TYPE": "React",
+    "LANGUAGE": "TypeScript",
+    "REACT_VERSION": "^18.0.0"
+  }
+}

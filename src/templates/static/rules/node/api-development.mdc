@@ -1,0 +1,1029 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Node.js API 开发规范
+
+## 项目架构设计
+
+### 目录结构规范
+Node.js 项目应该遵循清晰的目录结构：
+
+```
+src/
+├── controllers/        # 控制器层
+│   ├── auth.controller.ts
+│   └── user.controller.ts
+├── middleware/         # 中间件
+│   ├── auth.middleware.ts
+│   ├── validation.middleware.ts
+│   └── error.middleware.ts
+├── models/            # 数据模型
+│   ├── user.model.ts
+│   └── index.ts
+├── routes/            # 路由定义
+│   ├── auth.routes.ts
+│   ├── user.routes.ts
+│   └── index.ts
+├── services/          # 业务逻辑层
+│   ├── auth.service.ts
+│   └── user.service.ts
+├── utils/             # 工具函数
+│   ├── logger.ts
+│   ├── validation.ts
+│   └── response.ts
+├── config/            # 配置文件
+│   ├── database.ts
+│   └── server.ts
+└── app.ts             # 应用入口
+```
+
+### 应用入口配置
+```typescript
+// src/app.ts
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import { config } from './config/server';
+import { logger } from './utils/logger';
+import { errorHandler } from './middleware/error.middleware';
+import routes from './routes';
+
+const app = express();
+
+// 安全中间件
+app.use(helmet());
+app.use(cors({
+  origin: config.allowedOrigins,
+  credentials: true
+}));
+
+// 限流中间件
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分钟
+  max: 100, // 限制每个IP每15分钟最多100个请求
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
+  }
+});
+app.use('/api/', limiter);
+
+// 基础中间件
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// 请求日志
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+  next();
+});
+
+// 路由
+app.use('/api/v1', routes);
+
+// 健康检查
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// 错误处理
+app.use(errorHandler);
+
+// 404处理
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.originalUrl
+  });
+});
+
+export default app;
+```
+
+## 路由设计规范
+
+### RESTful API 设计
+```typescript
+// src/routes/user.routes.ts
+import { Router } from 'express';
+import { UserController } from '../controllers/user.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { validateRequest } from '../middleware/validation.middleware';
+import { userValidationSchemas } from '../validation/user.validation';
+
+const router = Router();
+const userController = new UserController();
+
+// 用户管理路由
+router.get(
+  '/',
+  authMiddleware,
+  userController.getUsers
+);
+
+router.get(
+  '/:id',
+  authMiddleware,
+  validateRequest(userValidationSchemas.getUserById),
+  userController.getUserById
+);
+
+router.post(
+  '/',
+  authMiddleware,
+  validateRequest(userValidationSchemas.createUser),
+  userController.createUser
+);
+
+router.put(
+  '/:id',
+  authMiddleware,
+  validateRequest(userValidationSchemas.updateUser),
+  userController.updateUser
+);
+
+router.delete(
+  '/:id',
+  authMiddleware,
+  validateRequest(userValidationSchemas.deleteUser),
+  userController.deleteUser
+);
+
+// 用户相关操作
+router.post(
+  '/:id/avatar',
+  authMiddleware,
+  validateRequest(userValidationSchemas.uploadAvatar),
+  userController.uploadAvatar
+);
+
+router.post(
+  '/:id/change-password',
+  authMiddleware,
+  validateRequest(userValidationSchemas.changePassword),
+  userController.changePassword
+);
+
+export default router;
+```
+
+### 路由组织和版本控制
+```typescript
+// src/routes/index.ts
+import { Router } from 'express';
+import authRoutes from './auth.routes';
+import userRoutes from './user.routes';
+import productRoutes from './product.routes';
+
+const router = Router();
+
+// API 版本路由
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/products', productRoutes);
+
+// API文档路由
+router.get('/', (req, res) => {
+  res.json({
+    message: 'API v1.0.0',
+    documentation: '/api/v1/docs',
+    endpoints: {
+      auth: '/api/v1/auth',
+      users: '/api/v1/users',
+      products: '/api/v1/products'
+    }
+  });
+});
+
+export default router;
+```
+
+## 控制器层设计
+
+### 控制器模式
+```typescript
+// src/controllers/user.controller.ts
+import { Request, Response, NextFunction } from 'express';
+import { UserService } from '../services/user.service';
+import { ApiResponse } from '../utils/response';
+import { logger } from '../utils/logger';
+import { AppError } from '../utils/errors';
+
+export class UserController {
+  private userService: UserService;
+
+  constructor() {
+    this.userService = new UserService();
+  }
+
+  /**
+   * 获取用户列表
+   */
+  getUsers = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { page = 1, limit = 10, search } = req.query;
+      const options = {
+        page: Number(page),
+        limit: Number(limit),
+        search: search as string
+      };
+
+      const result = await this.userService.getUsers(options);
+
+      res.json(ApiResponse.success(result, 'Users retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * 根据ID获取用户
+   */
+  getUserById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const user = await this.userService.getUserById(id);
+
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+
+      res.json(ApiResponse.success(user, 'User retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * 创建用户
+   */
+  createUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.body;
+      const newUser = await this.userService.createUser(userData);
+
+      logger.info('User created', { userId: newUser.id, email: newUser.email });
+
+      res.status(201).json(
+        ApiResponse.success(newUser, 'User created successfully')
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * 更新用户
+   */
+  updateUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      const updatedUser = await this.userService.updateUser(id, updateData);
+
+      if (!updatedUser) {
+        throw new AppError('User not found', 404);
+      }
+
+      logger.info('User updated', { userId: id });
+
+      res.json(ApiResponse.success(updatedUser, 'User updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * 删除用户
+   */
+  deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const deleted = await this.userService.deleteUser(id);
+
+      if (!deleted) {
+        throw new AppError('User not found', 404);
+      }
+
+      logger.info('User deleted', { userId: id });
+
+      res.json(ApiResponse.success(null, 'User deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+```
+
+### 异步错误处理
+```typescript
+// src/utils/async-handler.ts
+import { Request, Response, NextFunction } from 'express';
+
+/**
+ * 异步函数错误处理包装器
+ */
+export const asyncHandler = (
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
+// 使用示例
+export class UserController {
+  getUsers = asyncHandler(async (req: Request, res: Response) => {
+    const users = await this.userService.getUsers();
+    res.json(ApiResponse.success(users));
+  });
+}
+```
+
+## 中间件设计
+
+### 认证中间件
+```typescript
+// src/middleware/auth.middleware.ts
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { config } from '../config/server';
+import { AppError } from '../utils/errors';
+import { UserService } from '../services/user.service';
+
+interface AuthenticatedRequest extends Request {
+  user?: any;
+}
+
+export const authMiddleware = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = extractTokenFromHeader(req);
+
+    if (!token) {
+      throw new AppError('Access token is required', 401);
+    }
+
+    // 验证JWT token
+    const decoded = jwt.verify(token, config.jwtSecret) as any;
+
+    // 从数据库获取用户信息
+    const userService = new UserService();
+    const user = await userService.getUserById(decoded.userId);
+
+    if (!user) {
+      throw new AppError('Invalid token: user not found', 401);
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Account is deactivated', 403);
+    }
+
+    // 将用户信息附加到请求对象
+    req.user = user;
+    next();
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      next(new AppError('Invalid token', 401));
+    } else {
+      next(error);
+    }
+  }
+};
+
+/**
+ * 从请求头中提取token
+ */
+function extractTokenFromHeader(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  return authHeader.substring(7);
+}
+
+/**
+ * 可选认证中间件（用户可能已登录也可能未登录）
+ */
+export const optionalAuthMiddleware = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = extractTokenFromHeader(req);
+
+    if (token) {
+      const decoded = jwt.verify(token, config.jwtSecret) as any;
+      const userService = new UserService();
+      const user = await userService.getUserById(decoded.userId);
+
+      if (user && user.isActive) {
+        req.user = user;
+      }
+    }
+
+    next();
+  } catch (error) {
+    // 可选认证失败时不抛出错误，继续执行
+    next();
+  }
+};
+```
+
+### 验证中间件
+```typescript
+// src/middleware/validation.middleware.ts
+import { Request, Response, NextFunction } from 'express';
+import Joi from 'joi';
+import { AppError } from '../utils/errors';
+
+export interface ValidationSchema {
+  body?: Joi.ObjectSchema;
+  params?: Joi.ObjectSchema;
+  query?: Joi.ObjectSchema;
+}
+
+/**
+ * 请求验证中间件
+ */
+export const validateRequest = (schema: ValidationSchema) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const errors: string[] = [];
+
+    // 验证请求体
+    if (schema.body) {
+      const { error } = schema.body.validate(req.body);
+      if (error) {
+        errors.push(`Body: ${error.details.map(d => d.message).join(', ')}`);
+      }
+    }
+
+    // 验证路径参数
+    if (schema.params) {
+      const { error } = schema.params.validate(req.params);
+      if (error) {
+        errors.push(`Params: ${error.details.map(d => d.message).join(', ')}`);
+      }
+    }
+
+    // 验证查询参数
+    if (schema.query) {
+      const { error } = schema.query.validate(req.query);
+      if (error) {
+        errors.push(`Query: ${error.details.map(d => d.message).join(', ')}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new AppError(`Validation failed: ${errors.join('; ')}`, 400);
+    }
+
+    next();
+  };
+};
+```
+
+### 权限控制中间件
+```typescript
+// src/middleware/permission.middleware.ts
+import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../utils/errors';
+
+interface AuthenticatedRequest extends Request {
+  user?: any;
+}
+
+/**
+ * 角色权限检查
+ */
+export const requireRole = (roles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401);
+    }
+
+    if (!roles.includes(req.user.role)) {
+      throw new AppError('Insufficient permissions', 403);
+    }
+
+    next();
+  };
+};
+
+/**
+ * 资源所有者检查
+ */
+export const requireOwnership = (resourceIdParam: string = 'id') => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401);
+    }
+
+    const resourceId = req.params[resourceIdParam];
+
+    // 管理员可以访问所有资源
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    // 检查资源所有权
+    if (req.user.id !== resourceId) {
+      throw new AppError('Access denied: not resource owner', 403);
+    }
+
+    next();
+  };
+};
+```
+
+## 服务层设计
+
+### 业务逻辑分离
+```typescript
+// src/services/user.service.ts
+import { UserModel } from '../models/user.model';
+import { AppError } from '../utils/errors';
+import { EmailService } from './email.service';
+import { CacheService } from './cache.service';
+import bcrypt from 'bcrypt';
+
+export interface CreateUserData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface UpdateUserData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
+export interface GetUsersOptions {
+  page: number;
+  limit: number;
+  search?: string;
+  role?: string;
+  isActive?: boolean;
+}
+
+export class UserService {
+  private emailService: EmailService;
+  private cacheService: CacheService;
+
+  constructor() {
+    this.emailService = new EmailService();
+    this.cacheService = new CacheService();
+  }
+
+  /**
+   * 获取用户列表
+   */
+  async getUsers(options: GetUsersOptions) {
+    const cacheKey = `users:${JSON.stringify(options)}`;
+
+    // 尝试从缓存获取
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const users = await UserModel.findWithPagination(options);
+
+    // 缓存结果
+    await this.cacheService.set(cacheKey, users, 300); // 5分钟缓存
+
+    return users;
+  }
+
+  /**
+   * 根据ID获取用户
+   */
+  async getUserById(id: string) {
+    const cacheKey = `user:${id}`;
+
+    // 尝试从缓存获取
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const user = await UserModel.findById(id);
+
+    if (user) {
+      // 缓存用户信息
+      await this.cacheService.set(cacheKey, user, 600); // 10分钟缓存
+    }
+
+    return user;
+  }
+
+  /**
+   * 创建用户
+   */
+  async createUser(userData: CreateUserData) {
+    // 检查邮箱是否已存在
+    const existingUser = await UserModel.findByEmail(userData.email);
+    if (existingUser) {
+      throw new AppError('Email already exists', 409);
+    }
+
+    // 密码加密
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+
+    // 创建用户
+    const newUser = await UserModel.create({
+      ...userData,
+      password: hashedPassword
+    });
+
+    // 发送欢迎邮件
+    await this.emailService.sendWelcomeEmail(newUser.email, newUser.firstName);
+
+    // 清除相关缓存
+    await this.cacheService.deletePattern('users:*');
+
+    return newUser;
+  }
+
+  /**
+   * 更新用户
+   */
+  async updateUser(id: string, updateData: UpdateUserData) {
+    // 如果更新邮箱，检查是否已存在
+    if (updateData.email) {
+      const existingUser = await UserModel.findByEmail(updateData.email);
+      if (existingUser && existingUser.id !== id) {
+        throw new AppError('Email already exists', 409);
+      }
+    }
+
+    const updatedUser = await UserModel.update(id, updateData);
+
+    if (updatedUser) {
+      // 清除相关缓存
+      await this.cacheService.delete(`user:${id}`);
+      await this.cacheService.deletePattern('users:*');
+    }
+
+    return updatedUser;
+  }
+
+  /**
+   * 删除用户
+   */
+  async deleteUser(id: string) {
+    const deleted = await UserModel.delete(id);
+
+    if (deleted) {
+      // 清除相关缓存
+      await this.cacheService.delete(`user:${id}`);
+      await this.cacheService.deletePattern('users:*');
+    }
+
+    return deleted;
+  }
+
+  /**
+   * 修改密码
+   */
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    // 验证旧密码
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      throw new AppError('Invalid old password', 400);
+    }
+
+    // 加密新密码
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // 更新密码
+    await UserModel.update(userId, { password: hashedNewPassword });
+
+    // 清除用户缓存
+    await this.cacheService.delete(`user:${userId}`);
+
+    return true;
+  }
+}
+```
+
+## 错误处理规范
+
+### 统一错误处理
+```typescript
+// src/utils/errors.ts
+export class AppError extends Error {
+  public statusCode: number;
+  public isOperational: boolean;
+  public code?: string;
+
+  constructor(message: string, statusCode: number, code?: string) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+    this.code = code;
+
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+// 具体错误类型
+export class ValidationError extends AppError {
+  constructor(message: string) {
+    super(message, 400, 'VALIDATION_ERROR');
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(resource: string) {
+    super(`${resource} not found`, 404, 'NOT_FOUND');
+  }
+}
+
+export class UnauthorizedError extends AppError {
+  constructor(message: string = 'Unauthorized') {
+    super(message, 401, 'UNAUTHORIZED');
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message: string = 'Forbidden') {
+    super(message, 403, 'FORBIDDEN');
+  }
+}
+```
+
+### 错误处理中间件
+```typescript
+// src/middleware/error.middleware.ts
+import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../utils/errors';
+import { logger } from '../utils/logger';
+
+/**
+ * 全局错误处理中间件
+ */
+export const errorHandler = (
+  error: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  // 记录错误
+  logger.error('Error occurred:', {
+    message: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+
+  // 默认错误响应
+  let statusCode = 500;
+  let message = 'Internal Server Error';
+  let code = 'INTERNAL_SERVER_ERROR';
+
+  // 处理自定义应用错误
+  if (error instanceof AppError) {
+    statusCode = error.statusCode;
+    message = error.message;
+    code = error.code || 'APP_ERROR';
+  }
+
+  // 处理特定错误类型
+  if (error.name === 'ValidationError') {
+    statusCode = 400;
+    message = error.message;
+    code = 'VALIDATION_ERROR';
+  }
+
+  if (error.name === 'CastError') {
+    statusCode = 400;
+    message = 'Invalid resource ID';
+    code = 'INVALID_ID';
+  }
+
+  if (error.name === 'MongoError' && (error as any).code === 11000) {
+    statusCode = 409;
+    message = 'Duplicate field value';
+    code = 'DUPLICATE_VALUE';
+  }
+
+  // 生产环境不暴露详细错误信息
+  if (process.env.NODE_ENV === 'production' && statusCode === 500) {
+    message = 'Something went wrong';
+  }
+
+  res.status(statusCode).json({
+    error: {
+      message,
+      code,
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    }
+  });
+};
+
+/**
+ * 404错误处理
+ */
+export const notFoundHandler = (req: Request, res: Response) => {
+  res.status(404).json({
+    error: {
+      message: 'Route not found',
+      code: 'NOT_FOUND',
+      path: req.originalUrl
+    }
+  });
+};
+```
+
+## API 响应格式规范
+
+### 统一响应格式
+```typescript
+// src/utils/response.ts
+export interface ApiResponseData<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+  };
+  errors?: string[];
+}
+
+export class ApiResponse {
+  /**
+   * 成功响应
+   */
+  static success<T>(
+    data?: T,
+    message: string = 'Success',
+    meta?: any
+  ): ApiResponseData<T> {
+    return {
+      success: true,
+      message,
+      ...(data !== undefined && { data }),
+      ...(meta && { meta })
+    };
+  }
+
+  /**
+   * 错误响应
+   */
+  static error(
+    message: string,
+    errors?: string[]
+  ): ApiResponseData {
+    return {
+      success: false,
+      message,
+      ...(errors && { errors })
+    };
+  }
+
+  /**
+   * 分页响应
+   */
+  static paginated<T>(
+    data: T[],
+    page: number,
+    limit: number,
+    total: number,
+    message: string = 'Data retrieved successfully'
+  ): ApiResponseData<T[]> {
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      message,
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  }
+}
+```
+
+## 性能优化
+
+### 缓存策略
+```typescript
+// src/services/cache.service.ts
+import Redis from 'ioredis';
+import { config } from '../config/server';
+
+export class CacheService {
+  private redis: Redis;
+
+  constructor() {
+    this.redis = new Redis(config.redis);
+  }
+
+  /**
+   * 设置缓存
+   */
+  async set(key: string, value: any, ttl: number = 3600): Promise<void> {
+    await this.redis.setex(key, ttl, JSON.stringify(value));
+  }
+
+  /**
+   * 获取缓存
+   */
+  async get<T>(key: string): Promise<T | null> {
+    const value = await this.redis.get(key);
+    return value ? JSON.parse(value) : null;
+  }
+
+  /**
+   * 删除缓存
+   */
+  async delete(key: string): Promise<void> {
+    await this.redis.del(key);
+  }
+
+  /**
+   * 删除匹配模式的缓存
+   */
+  async deletePattern(pattern: string): Promise<void> {
+    const keys = await this.redis.keys(pattern);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+    }
+  }
+}
+```
+
+### 数据库连接池
+```typescript
+// src/config/database.ts
+import mongoose from 'mongoose';
+import { config } from './server';
+import { logger } from '../utils/logger';
+
+export const connectDatabase = async (): Promise<void> => {
+  try {
+    const connection = await mongoose.connect(config.database.uri, {
+      maxPoolSize: 10, // 最大连接数
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+
+    logger.info('Database connected successfully', {
+      host: connection.connection.host,
+      name: connection.connection.name
+    });
+
+    // 监听连接事件
+    mongoose.connection.on('error', (error) => {
+      logger.error('Database connection error:', error);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('Database disconnected');
+    });
+
+  } catch (error) {
+    logger.error('Database connection failed:', error);
+    process.exit(1);
+  }
+};
+```

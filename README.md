@@ -12,7 +12,7 @@
 - 🎯 **智能推荐** - 基于项目依赖和技术栈推荐最佳实践规则
 - 📦 **模板丰富** - 内置 React、Vue、TypeScript、Node.js 等主流技术栈模板
 - 🔧 **高度可配置** - 支持自定义模板和全局配置
-- 🌍 **多语言支持** - 支持中文和英文界面
+- 🌍 **中文界面** - 原生中文交互体验
 - 📋 **标准化** - 遵循最新的 Cursor Rules 规范和最佳实践
 
 ## 🗂️ 核心模块说明
@@ -26,8 +26,6 @@
 
 - **detector/** - 智能检测项目类型、框架、依赖
 - **generator/** - 根据模板和配置生成规则文件
-- **validator/** - 验证生成的规则文件格式和完整性
-- **updater/** - 管理规则版本更新和同步
 
 ### 模板系统
 
@@ -107,11 +105,10 @@ cursor-rules add typescript --force
 cursor-rules config
 
 # 设置配置项
-cursor-rules config --set language=zh
 cursor-rules config --set autoUpdate=false
 
 # 获取配置项
-cursor-rules config --get language
+cursor-rules config --get autoUpdate
 
 # 重置为默认配置
 cursor-rules config --reset
@@ -127,9 +124,8 @@ cursor-rules config --reset
     │   └── typescript.mdc  # TypeScript 规范
     ├── modules/            # 模块规则（按需调用）
     │   ├── react.mdc       # React 开发规范
-    │   └── testing.mdc     # 测试规范
-    ├── workflow/           # 流程规则（按需调用）
-    │   └── crud.mdc        # CRUD 操作规范
+    │   ├── vue.mdc         # Vue.js 开发规范
+    │   └── node.mdc        # Node.js 开发规范
     └── ai.mdc             # AI 协作执行规则
 ```
 
@@ -144,20 +140,10 @@ cursor-rules config --reset
 
 - **react** - React 开发最佳实践
 - **vue** - Vue.js 开发规范
-- **angular** - Angular 开发指南
-- **next** - Next.js 项目规范
-- **nuxt** - Nuxt.js 项目规范
 
 ### 后端框架
 
 - **node** - Node.js 开发规范
-- **express** - Express.js 最佳实践
-
-### 工具和测试
-
-- **testing** - 测试框架规范
-- **eslint** - ESLint 配置规范
-- **prettier** - 代码格式化规范
 
 ## ⚙️ 配置选项
 
@@ -167,7 +153,6 @@ cursor-rules config --reset
 {
   "preferredTemplates": ["basic", "typescript"],
   "autoUpdate": true,
-  "language": "zh",
   "registryUrl": "https://api.cursor-rules.com",
   "customTemplatePath": "/path/to/custom/templates"
 }

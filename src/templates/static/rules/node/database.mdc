@@ -1,0 +1,1420 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Node.js 数据库开发规范
+
+## 数据库选择和架构
+
+### 数据库选型指南
+
+**关系型数据库 (RDBMS)**
+- **PostgreSQL** - 推荐用于复杂业务逻辑，支持ACID事务
+- **MySQL** - 适用于高并发读写场景
+- **SQLite** - 轻量级，适合开发环境和小型应用
+
+**NoSQL数据库**
+- **MongoDB** - 文档数据库，适合快速开发和灵活schema
+- **Redis** - 缓存和会话存储
+- **Elasticsearch** - 全文搜索和分析
+
+### 数据库架构设计
+
+#### 单体应用架构
+```typescript
+// config/database.ts
+export const databaseConfig = {
+  development: {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    database: process.env.DB_NAME || 'myapp_dev',
+    username: process.env.DB_USER || 'developer',
+    password: process.env.DB_PASSWORD || 'dev_password',
+    dialect: 'postgres' as const,
+    logging: console.log,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  },
+  production: {
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432'),
+    database: process.env.DB_NAME,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    dialect: 'postgres' as const,
+    logging: false,
+    pool: {
+      max: 20,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    }
+  }
+};
+```
+
+#### 微服务架构
+```typescript
+// services/user-service/database.ts
+export class UserDatabaseService {
+  private connection: Pool;
+
+  constructor() {
+    this.connection = new Pool({
+      host: process.env.USER_DB_HOST,
+      port: parseInt(process.env.USER_DB_PORT || '5432'),
+      database: process.env.USER_DB_NAME,
+      user: process.env.USER_DB_USER,
+      password: process.env.USER_DB_PASSWORD,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+  }
+
+  async getConnection(): Promise<PoolClient> {
+    return await this.connection.connect();
+  }
+
+  async close(): Promise<void> {
+    await this.connection.end();
+  }
+}
+```
+
+## ORM 和查询构建器
+
+### Prisma ORM (推荐)
+
+#### Schema 定义
+```prisma
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  firstName String
+  lastName  String
+  avatar    String?
+  role      Role     @default(USER)
+  status    UserStatus @default(ACTIVE)
+  
+  // 时间戳
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关系
+  posts     Post[]
+  comments  Comment[]
+  profile   Profile?
+  
+  // 索引
+  @@index([email])
+  @@index([username])
+  @@index([status, role])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  slug      String   @unique
+  published Boolean  @default(false)
+  
+  // 外键
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // 时间戳
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关系
+  comments  Comment[]
+  tags      Tag[]
+  
+  // 索引
+  @@index([authorId])
+  @@index([published, createdAt])
+  @@index([slug])
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+```
+
+#### Prisma 客户端使用
+```typescript
+// services/user.service.ts
+import { PrismaClient, User, Prisma } from '@prisma/client';
+
+export class UserService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn'] : ['error'],
+    });
+  }
+
+  // 创建用户
+  async createUser(userData: Prisma.UserCreateInput): Promise<User> {
+    try {
+      return await this.prisma.user.create({
+        data: userData,
+        include: {
+          profile: true,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error('用户邮箱或用户名已存在');
+        }
+      }
+      throw error;
+    }
+  }
+
+  // 查找用户（带分页）
+  async findUsers(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.UserWhereUniqueInput;
+    where?: Prisma.UserWhereInput;
+    orderBy?: Prisma.UserOrderByWithRelationInput;
+  }): Promise<{ users: User[]; total: number }> {
+    const { skip = 0, take = 10, cursor, where, orderBy } = params;
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        skip,
+        take,
+        cursor,
+        where,
+        orderBy,
+        include: {
+          profile: true,
+          _count: {
+            select: {
+              posts: true,
+              comments: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { users, total };
+  }
+
+  // 更新用户
+  async updateUser(id: string, data: Prisma.UserUpdateInput): Promise<User> {
+    return await this.prisma.user.update({
+      where: { id },
+      data,
+      include: {
+        profile: true,
+      },
+    });
+  }
+
+  // 软删除用户
+  async deleteUser(id: string): Promise<User> {
+    return await this.prisma.user.update({
+      where: { id },
+      data: {
+        status: 'INACTIVE',
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  // 复杂查询示例
+  async getUsersWithPostStats(): Promise<any[]> {
+    return await this.prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        _count: {
+          select: {
+            posts: {
+              where: {
+                published: true,
+              },
+            },
+          },
+        },
+        posts: {
+          where: {
+            published: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 5,
+          select: {
+            id: true,
+            title: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  // 事务处理
+  async transferUserData(fromUserId: string, toUserId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // 更新帖子所有权
+      await tx.post.updateMany({
+        where: { authorId: fromUserId },
+        data: { authorId: toUserId },
+      });
+
+      // 更新评论所有权
+      await tx.comment.updateMany({
+        where: { authorId: fromUserId },
+        data: { authorId: toUserId },
+      });
+
+      // 停用原用户
+      await tx.user.update({
+        where: { id: fromUserId },
+        data: { status: 'INACTIVE' },
+      });
+    });
+  }
+
+  // 关闭连接
+  async disconnect(): Promise<void> {
+    await this.prisma.$disconnect();
+  }
+}
+```
+
+### TypeORM 替代方案
+
+#### 实体定义
+```typescript
+// entities/User.entity.ts
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  OneToOne,
+  Index,
+} from 'typeorm';
+import { Post } from './Post.entity';
+import { Profile } from './Profile.entity';
+
+@Entity('users')
+@Index(['email'])
+@Index(['username'])
+export class User {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column({ unique: true })
+  username: string;
+
+  @Column()
+  firstName: string;
+
+  @Column()
+  lastName: string;
+
+  @Column({ nullable: true })
+  avatar?: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['USER', 'ADMIN', 'MODERATOR'],
+    default: 'USER',
+  })
+  role: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED'],
+    default: 'ACTIVE',
+  })
+  status: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @OneToMany(() => Post, (post) => post.author)
+  posts: Post[];
+
+  @OneToOne(() => Profile, (profile) => profile.user)
+  profile: Profile;
+}
+```
+
+#### Repository 模式
+```typescript
+// repositories/user.repository.ts
+import { Repository, EntityRepository, SelectQueryBuilder } from 'typeorm';
+import { User } from '../entities/User.entity';
+
+@EntityRepository(User)
+export class UserRepository extends Repository<User> {
+  
+  async findByEmailOrUsername(identifier: string): Promise<User | undefined> {
+    return this.createQueryBuilder('user')
+      .where('user.email = :identifier OR user.username = :identifier', {
+        identifier,
+      })
+      .getOne();
+  }
+
+  async findActiveUsers(page: number = 1, limit: number = 10): Promise<[User[], number]> {
+    return this.createQueryBuilder('user')
+      .where('user.status = :status', { status: 'ACTIVE' })
+      .leftJoinAndSelect('user.profile', 'profile')
+      .orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+  }
+
+  async getUserWithPostCount(userId: string): Promise<any> {
+    return this.createQueryBuilder('user')
+      .leftJoin('user.posts', 'post')
+      .addSelect('COUNT(post.id)', 'postCount')
+      .where('user.id = :userId', { userId })
+      .groupBy('user.id')
+      .getRawOne();
+  }
+
+  buildSearchQuery(searchTerm?: string): SelectQueryBuilder<User> {
+    const query = this.createQueryBuilder('user')
+      .leftJoinAndSelect('user.profile', 'profile');
+
+    if (searchTerm) {
+      query.where(
+        'user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search',
+        { search: `%${searchTerm}%` }
+      );
+    }
+
+    return query;
+  }
+}
+```
+
+## 查询优化
+
+### 索引策略
+
+#### 数据库索引设计
+```sql
+-- 基础索引
+CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_users_username ON users (username);
+CREATE INDEX idx_users_status ON users (status);
+
+-- 复合索引
+CREATE INDEX idx_posts_author_published ON posts (author_id, published, created_at);
+CREATE INDEX idx_comments_post_created ON comments (post_id, created_at);
+
+-- 部分索引
+CREATE INDEX idx_users_active ON users (created_at) WHERE status = 'ACTIVE';
+CREATE INDEX idx_posts_published ON posts (created_at) WHERE published = true;
+
+-- 全文搜索索引
+CREATE INDEX idx_posts_search ON posts USING gin(to_tsvector('english', title || ' ' || content));
+```
+
+#### Prisma 索引优化
+```typescript
+// 查询优化示例
+export class OptimizedQueryService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient();
+  }
+
+  // 避免 N+1 查询问题
+  async getPostsWithAuthors(): Promise<any[]> {
+    return await this.prisma.post.findMany({
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  // 使用游标分页提高性能
+  async getPaginatedPosts(cursor?: string, take: number = 10): Promise<any> {
+    const posts = await this.prisma.post.findMany({
+      take: take + 1, // 多取一条判断是否有下一页
+      ...(cursor && {
+        cursor: {
+          id: cursor,
+        },
+        skip: 1, // 跳过游标本身
+      }),
+      include: {
+        author: {
+          select: {
+            username: true,
+            avatar: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const hasNextPage = posts.length > take;
+    const results = hasNextPage ? posts.slice(0, -1) : posts;
+
+    return {
+      posts: results,
+      hasNextPage,
+      nextCursor: hasNextPage ? results[results.length - 1].id : null,
+    };
+  }
+
+  // 聚合查询优化
+  async getUserStats(): Promise<any[]> {
+    return await this.prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        _count: {
+          select: {
+            posts: {
+              where: {
+                published: true,
+              },
+            },
+            comments: true,
+          },
+        },
+      },
+      where: {
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  // 原生SQL查询（复杂场景）
+  async getPopularPosts(limit: number = 10): Promise<any[]> {
+    return await this.prisma.$queryRaw`
+      SELECT 
+        p.id,
+        p.title,
+        p.created_at,
+        u.username as author_name,
+        COUNT(c.id) as comment_count,
+        COUNT(DISTINCT c.author_id) as unique_commenters
+      FROM posts p
+      LEFT JOIN users u ON p.author_id = u.id
+      LEFT JOIN comments c ON p.id = c.post_id
+      WHERE p.published = true
+      GROUP BY p.id, p.title, p.created_at, u.username
+      ORDER BY comment_count DESC, unique_commenters DESC
+      LIMIT ${limit}
+    `;
+  }
+}
+```
+
+### 连接池优化
+
+#### 连接池配置
+```typescript
+// config/database.ts
+import { Pool } from 'pg';
+
+export class DatabasePool {
+  private static instance: DatabasePool;
+  private pool: Pool;
+
+  private constructor() {
+    this.pool = new Pool({
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      
+      // 连接池配置
+      max: 20, // 最大连接数
+      min: 2,  // 最小连接数
+      idleTimeoutMillis: 30000, // 空闲连接超时
+      connectionTimeoutMillis: 2000, // 连接超时
+      
+      // 重试配置
+      maxRetries: 3,
+      retryDelayMs: 1000,
+      
+      // SSL配置
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false,
+      } : false,
+    });
+
+    // 连接池事件监听
+    this.pool.on('connect', (client) => {
+      console.log('New client connected:', client.processID);
+    });
+
+    this.pool.on('error', (err) => {
+      console.error('Database pool error:', err);
+    });
+  }
+
+  public static getInstance(): DatabasePool {
+    if (!DatabasePool.instance) {
+      DatabasePool.instance = new DatabasePool();
+    }
+    return DatabasePool.instance;
+  }
+
+  public getPool(): Pool {
+    return this.pool;
+  }
+
+  public async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+```
+
+#### 查询监控
+```typescript
+// middleware/query-monitor.ts
+import { performance } from 'perf_hooks';
+
+export class QueryMonitor {
+  private slowQueryThreshold: number = 1000; // 1秒
+
+  logQuery(query: string, params: any[], duration: number): void {
+    const logData = {
+      query: query.replace(/\s+/g, ' ').trim(),
+      params,
+      duration: Math.round(duration),
+      timestamp: new Date().toISOString(),
+    };
+
+    if (duration > this.slowQueryThreshold) {
+      console.warn('Slow query detected:', logData);
+      // 发送到监控系统
+      this.sendToMonitoring(logData);
+    } else if (process.env.NODE_ENV === 'development') {
+      console.log('Query executed:', logData);
+    }
+  }
+
+  private sendToMonitoring(queryData: any): void {
+    // 发送到监控服务（如 DataDog, New Relic 等）
+    // monitoring.track('slow_query', queryData);
+  }
+}
+
+// 使用示例
+export async function executeQuery<T>(
+  query: string,
+  params: any[] = []
+): Promise<T> {
+  const monitor = new QueryMonitor();
+  const startTime = performance.now();
+
+  try {
+    const pool = DatabasePool.getInstance().getPool();
+    const client = await pool.connect();
+    
+    try {
+      const result = await client.query(query, params);
+      const duration = performance.now() - startTime;
+      
+      monitor.logQuery(query, params, duration);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    const duration = performance.now() - startTime;
+    monitor.logQuery(query, params, duration);
+    throw error;
+  }
+}
+```
+
+## 事务处理
+
+### ACID 事务管理
+
+#### Prisma 事务
+```typescript
+// services/order.service.ts
+export class OrderService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient();
+  }
+
+  // 简单事务
+  async createOrderWithItems(orderData: any, items: any[]): Promise<any> {
+    return await this.prisma.$transaction(async (tx) => {
+      // 创建订单
+      const order = await tx.order.create({
+        data: {
+          userId: orderData.userId,
+          total: orderData.total,
+          status: 'PENDING',
+        },
+      });
+
+      // 创建订单项
+      const orderItems = await Promise.all(
+        items.map((item) =>
+          tx.orderItem.create({
+            data: {
+              orderId: order.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+            },
+          })
+        )
+      );
+
+      // 更新产品库存
+      await Promise.all(
+        items.map((item) =>
+          tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: {
+                decrement: item.quantity,
+              },
+            },
+          })
+        )
+      );
+
+      return { order, orderItems };
+    });
+  }
+
+  // 交互式事务（长时间运行）
+  async processPayment(orderId: string, paymentData: any): Promise<any> {
+    return await this.prisma.$transaction(
+      async (tx) => {
+        // 检查订单状态
+        const order = await tx.order.findUnique({
+          where: { id: orderId },
+          include: { items: true },
+        });
+
+        if (!order || order.status !== 'PENDING') {
+          throw new Error('订单状态无效');
+        }
+
+        // 验证库存
+        for (const item of order.items) {
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+
+          if (!product || product.stock < item.quantity) {
+            throw new Error(`产品 ${product?.name || item.productId} 库存不足`);
+          }
+        }
+
+        // 处理支付
+        const payment = await tx.payment.create({
+          data: {
+            orderId: order.id,
+            amount: order.total,
+            method: paymentData.method,
+            status: 'PROCESSING',
+          },
+        });
+
+        // 调用第三方支付API
+        const paymentResult = await this.processExternalPayment(paymentData);
+
+        if (paymentResult.success) {
+          // 更新支付状态
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: 'COMPLETED',
+              transactionId: paymentResult.transactionId,
+            },
+          });
+
+          // 更新订单状态
+          await tx.order.update({
+            where: { id: orderId },
+            data: { status: 'PAID' },
+          });
+
+          return { success: true, payment, order };
+        } else {
+          // 支付失败，回滚事务
+          throw new Error('支付处理失败');
+        }
+      },
+      {
+        timeout: 10000, // 10秒超时
+        isolationLevel: 'Serializable', // 最高隔离级别
+      }
+    );
+  }
+
+  private async processExternalPayment(paymentData: any): Promise<any> {
+    // 模拟第三方支付API调用
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: Math.random() > 0.1, // 90% 成功率
+          transactionId: `txn_${Date.now()}`,
+        });
+      }, 2000);
+    });
+  }
+}
+```
+
+#### 原生SQL事务
+```typescript
+// services/manual-transaction.service.ts
+import { Pool, PoolClient } from 'pg';
+
+export class ManualTransactionService {
+  private pool: Pool;
+
+  constructor() {
+    this.pool = DatabasePool.getInstance().getPool();
+  }
+
+  async transferFunds(fromAccountId: string, toAccountId: string, amount: number): Promise<void> {
+    const client: PoolClient = await this.pool.connect();
+
+    try {
+      // 开始事务
+      await client.query('BEGIN');
+
+      // 设置事务隔离级别
+      await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+
+      // 检查源账户余额
+      const fromAccount = await client.query(
+        'SELECT balance FROM accounts WHERE id = $1 FOR UPDATE',
+        [fromAccountId]
+      );
+
+      if (fromAccount.rows[0].balance < amount) {
+        throw new Error('余额不足');
+      }
+
+      // 扣除源账户余额
+      await client.query(
+        'UPDATE accounts SET balance = balance - $1 WHERE id = $2',
+        [amount, fromAccountId]
+      );
+
+      // 增加目标账户余额
+      await client.query(
+        'UPDATE accounts SET balance = balance + $1 WHERE id = $2',
+        [amount, toAccountId]
+      );
+
+      // 记录转账历史
+      await client.query(
+        'INSERT INTO transactions (from_account_id, to_account_id, amount, type, created_at) VALUES ($1, $2, $3, $4, NOW())',
+        [fromAccountId, toAccountId, amount, 'TRANSFER']
+      );
+
+      // 提交事务
+      await client.query('COMMIT');
+      
+      console.log(`转账成功: ${fromAccountId} -> ${toAccountId}, 金额: ${amount}`);
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      console.error('转账失败，已回滚:', error);
+      throw error;
+    } finally {
+      // 释放连接
+      client.release();
+    }
+  }
+
+  // 批量操作事务
+  async batchUpdateUsers(updates: Array<{ id: string; data: any }>): Promise<void> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      for (const update of updates) {
+        await client.query(
+          'UPDATE users SET first_name = $1, last_name = $2, updated_at = NOW() WHERE id = $3',
+          [update.data.firstName, update.data.lastName, update.id]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+```
+
+## 缓存策略
+
+### Redis 缓存实现
+
+#### 缓存服务抽象
+```typescript
+// services/cache.service.ts
+import Redis from 'ioredis';
+
+export class CacheService {
+  private redis: Redis;
+  private defaultTTL: number = 3600; // 1小时
+
+  constructor() {
+    this.redis = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+      password: process.env.REDIS_PASSWORD,
+      db: parseInt(process.env.REDIS_DB || '0'),
+      retryDelayOnFailover: 100,
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+    });
+
+    this.redis.on('error', (error) => {
+      console.error('Redis connection error:', error);
+    });
+
+    this.redis.on('connect', () => {
+      console.log('Redis connected successfully');
+    });
+  }
+
+  // 基础缓存操作
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const value = await this.redis.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.error(`Cache get error for key ${key}:`, error);
+      return null;
+    }
+  }
+
+  async set<T>(key: string, value: T, ttl: number = this.defaultTTL): Promise<void> {
+    try {
+      await this.redis.setex(key, ttl, JSON.stringify(value));
+    } catch (error) {
+      console.error(`Cache set error for key ${key}:`, error);
+    }
+  }
+
+  async del(key: string): Promise<void> {
+    try {
+      await this.redis.del(key);
+    } catch (error) {
+      console.error(`Cache delete error for key ${key}:`, error);
+    }
+  }
+
+  async delPattern(pattern: string): Promise<void> {
+    try {
+      const keys = await this.redis.keys(pattern);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+    } catch (error) {
+      console.error(`Cache delete pattern error for ${pattern}:`, error);
+    }
+  }
+
+  // 缓存穿透保护
+  async getOrSet<T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    ttl: number = this.defaultTTL
+  ): Promise<T> {
+    // 尝试从缓存获取
+    let value = await this.get<T>(key);
+    
+    if (value !== null) {
+      return value;
+    }
+
+    // 缓存未命中，从数据源获取
+    try {
+      value = await fetcher();
+      
+      // 存储到缓存
+      if (value !== null && value !== undefined) {
+        await this.set(key, value, ttl);
+      }
+      
+      return value;
+    } catch (error) {
+      console.error(`Error fetching data for key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  // 分布式锁
+  async acquireLock(key: string, ttl: number = 30): Promise<boolean> {
+    try {
+      const result = await this.redis.set(
+        `lock:${key}`,
+        Date.now().toString(),
+        'EX',
+        ttl,
+        'NX'
+      );
+      return result === 'OK';
+    } catch (error) {
+      console.error(`Lock acquire error for key ${key}:`, error);
+      return false;
+    }
+  }
+
+  async releaseLock(key: string): Promise<void> {
+    try {
+      await this.redis.del(`lock:${key}`);
+    } catch (error) {
+      console.error(`Lock release error for key ${key}:`, error);
+    }
+  }
+
+  // 计数器
+  async increment(key: string, ttl?: number): Promise<number> {
+    try {
+      const result = await this.redis.incr(key);
+      if (ttl && result === 1) {
+        await this.redis.expire(key, ttl);
+      }
+      return result;
+    } catch (error) {
+      console.error(`Counter increment error for key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  // 列表操作
+  async listPush(key: string, value: any): Promise<void> {
+    try {
+      await this.redis.lpush(key, JSON.stringify(value));
+    } catch (error) {
+      console.error(`List push error for key ${key}:`, error);
+    }
+  }
+
+  async listPop(key: string): Promise<any> {
+    try {
+      const value = await this.redis.rpop(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.error(`List pop error for key ${key}:`, error);
+      return null;
+    }
+  }
+
+  // 关闭连接
+  async disconnect(): Promise<void> {
+    await this.redis.quit();
+  }
+}
+```
+
+#### 应用层缓存策略
+```typescript
+// services/user-cache.service.ts
+export class UserCacheService {
+  private cache: CacheService;
+  private userService: UserService;
+
+  constructor() {
+    this.cache = new CacheService();
+    this.userService = new UserService();
+  }
+
+  // 用户信息缓存
+  async getUserById(id: string): Promise<User | null> {
+    const cacheKey = `user:${id}`;
+    
+    return await this.cache.getOrSet(
+      cacheKey,
+      async () => {
+        return await this.userService.findById(id);
+      },
+      3600 // 1小时缓存
+    );
+  }
+
+  // 用户列表缓存（带分页）
+  async getUserList(page: number, limit: number, filters?: any): Promise<any> {
+    const cacheKey = `users:page:${page}:limit:${limit}:filters:${JSON.stringify(filters || {})}`;
+    
+    return await this.cache.getOrSet(
+      cacheKey,
+      async () => {
+        return await this.userService.findUsers({
+          skip: (page - 1) * limit,
+          take: limit,
+          where: filters,
+        });
+      },
+      600 // 10分钟缓存
+    );
+  }
+
+  // 缓存失效策略
+  async invalidateUserCache(userId: string): Promise<void> {
+    // 删除单个用户缓存
+    await this.cache.del(`user:${userId}`);
+    
+    // 删除相关列表缓存
+    await this.cache.delPattern('users:page:*');
+    await this.cache.delPattern(`user:${userId}:*`);
+  }
+
+  // 预热缓存
+  async warmUpCache(): Promise<void> {
+    console.log('开始预热用户缓存...');
+    
+    // 预热热点用户数据
+    const hotUsers = await this.userService.getHotUsers();
+    
+    await Promise.all(
+      hotUsers.map(async (user) => {
+        const cacheKey = `user:${user.id}`;
+        await this.cache.set(cacheKey, user, 7200); // 2小时
+      })
+    );
+    
+    console.log(`预热完成，缓存了 ${hotUsers.length} 个用户`);
+  }
+
+  // 缓存统计
+  async getCacheStats(): Promise<any> {
+    const info = await this.cache['redis'].info('memory');
+    return {
+      memoryUsage: info,
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+```
+
+## 数据库迁移
+
+### Prisma 迁移管理
+
+#### 迁移文件示例
+```sql
+-- migrations/20231201000001_init/migration.sql
+
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN', 'MODERATOR');
+
+-- CreateEnum
+CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
+
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "first_name" TEXT NOT NULL,
+    "last_name" TEXT NOT NULL,
+    "avatar" TEXT,
+    "role" "Role" NOT NULL DEFAULT 'USER',
+    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
+CREATE INDEX "users_email_idx" ON "users"("email");
+CREATE INDEX "users_status_role_idx" ON "users"("status", "role");
+```
+
+#### 迁移脚本
+```typescript
+// scripts/migrate.ts
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('开始数据库迁移...');
+
+  try {
+    // 执行迁移
+    await prisma.$executeRaw`
+      -- 迁移脚本
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;
+    `;
+
+    // 数据迁移
+    await prisma.$executeRaw`
+      UPDATE users SET last_login_at = created_at WHERE last_login_at IS NULL;
+    `;
+
+    console.log('迁移完成！');
+  } catch (error) {
+    console.error('迁移失败:', error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main();
+```
+
+### 种子数据
+
+#### 开发环境种子数据
+```typescript
+// prisma/seed.ts
+import { PrismaClient } from '@prisma/client';
+import { faker } from '@faker-js/faker';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('开始生成种子数据...');
+
+  // 创建管理员用户
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
+      email: 'admin@example.com',
+      username: 'admin',
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+    },
+  });
+
+  // 创建测试用户
+  const users = await Promise.all(
+    Array.from({ length: 50 }, async () => {
+      return prisma.user.create({
+        data: {
+          email: faker.internet.email(),
+          username: faker.internet.userName(),
+          firstName: faker.person.firstName(),
+          lastName: faker.person.lastName(),
+          avatar: faker.image.avatar(),
+          role: faker.helpers.arrayElement(['USER', 'MODERATOR']),
+          status: 'ACTIVE',
+        },
+      });
+    })
+  );
+
+  // 创建帖子
+  const posts = await Promise.all(
+    Array.from({ length: 200 }, async () => {
+      const randomUser = faker.helpers.arrayElement(users);
+      return prisma.post.create({
+        data: {
+          title: faker.lorem.sentence(),
+          content: faker.lorem.paragraphs(3),
+          slug: faker.helpers.slugify(faker.lorem.sentence()),
+          published: faker.datatype.boolean(),
+          authorId: randomUser.id,
+        },
+      });
+    })
+  );
+
+  console.log(`创建了 ${users.length} 个用户和 ${posts.length} 篇帖子`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+```
+
+## 性能监控和调试
+
+### 查询性能监控
+```typescript
+// middleware/database-monitor.ts
+export class DatabaseMonitor {
+  private slowQueryThreshold = 1000; // 1秒
+
+  constructor(private prisma: PrismaClient) {
+    this.setupQueryLogging();
+  }
+
+  private setupQueryLogging(): void {
+    this.prisma.$use(async (params, next) => {
+      const start = Date.now();
+      
+      const result = await next(params);
+      
+      const duration = Date.now() - start;
+      
+      this.logQuery({
+        model: params.model,
+        action: params.action,
+        duration,
+        args: params.args,
+      });
+
+      return result;
+    });
+  }
+
+  private logQuery(queryInfo: any): void {
+    if (queryInfo.duration > this.slowQueryThreshold) {
+      console.warn('Slow query detected:', {
+        model: queryInfo.model,
+        action: queryInfo.action,
+        duration: `${queryInfo.duration}ms`,
+        timestamp: new Date().toISOString(),
+      });
+
+      // 发送到监控系统
+      this.sendToMonitoring(queryInfo);
+    }
+  }
+
+  private sendToMonitoring(queryInfo: any): void {
+    // 集成监控服务
+    // 例如: DataDog, New Relic, 自定义监控系统
+  }
+
+  // 健康检查
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return true;
+    } catch (error) {
+      console.error('Database health check failed:', error);
+      return false;
+    }
+  }
+
+  // 连接池状态
+  getConnectionPoolStatus(): any {
+    // 返回连接池统计信息
+    return {
+      active: 'N/A', // Prisma 不直接暴露连接池信息
+      idle: 'N/A',
+      waiting: 'N/A',
+    };
+  }
+}
+```
+
+### 数据库备份和恢复
+```bash
+#!/bin/bash
+# scripts/backup.sh
+
+# 数据库备份脚本
+DB_NAME=${DB_NAME:-myapp}
+DB_USER=${DB_USER:-postgres}
+DB_HOST=${DB_HOST:-localhost}
+BACKUP_DIR=${BACKUP_DIR:-./backups}
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# 创建备份目录
+mkdir -p $BACKUP_DIR
+
+# 执行备份
+pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME \
+  --no-password \
+  --verbose \
+  --clean \
+  --no-owner \
+  --no-privileges \
+  --format=custom \
+  > $BACKUP_DIR/backup_$TIMESTAMP.dump
+
+echo "备份完成: $BACKUP_DIR/backup_$TIMESTAMP.dump"
+
+# 清理旧备份（保留最近7天）
+find $BACKUP_DIR -name "backup_*.dump" -mtime +7 -delete

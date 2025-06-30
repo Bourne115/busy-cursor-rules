@@ -1,0 +1,1248 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 测试开发规范
+
+## 测试策略
+
+### 测试金字塔
+# 测试开发规范
+
+## 测试策略概述
+
+### 测试金字塔原则
+遵循测试金字塔原则，构建稳定可靠的测试体系：
+
+```
+    /\
+   /  \     E2E 测试 (少量)
+  /____\    - 关键用户流程
+ /      \   - 端到端业务场景
+/________\  
+           集成测试 (适量)
+          - API 接口测试
+          - 组件集成测试
+         - 数据库操作测试
+
+      单元测试 (大量)
+    - 函数逻辑测试
+    - 组件行为测试
+    - 工具函数测试
+```
+
+### 测试覆盖率要求
+- **新增代码**：必须有对应测试
+- **关键业务逻辑**：要求 100% 覆盖
+- **整体覆盖率**：维持 80% 以上
+- **分支覆盖率**：关键模块 85% 以上
+
+### 测试分类和比例
+- **单元测试**：70% - 快速、独立、可靠
+- **集成测试**：20% - 验证模块间协作
+- **端到端测试**：10% - 验证完整用户流程
+
+## 测试框架配置
+
+### Jest 配置
+```javascript
+// jest.config.js
+module.exports = {
+  // 测试环境
+  testEnvironment: 'jsdom', // React 项目使用 jsdom
+  
+  // 测试文件匹配模式
+  testMatch: [
+    '<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}',
+    '<rootDir>/src/**/*.{test,spec}.{js,jsx,ts,tsx}',
+  ],
+
+  // 模块路径映射
+  moduleNameMapping: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+  },
+
+  // 设置文件
+  setupFilesAfterEnv: ['<rootDir>/src/test-utils/setup.ts'],
+
+  // 覆盖率配置
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/test-utils/**/*',
+    '!src/**/*.stories.{js,jsx,ts,tsx}',
+  ],
+
+  // 覆盖率阈值
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+    // 关键模块要求更高覆盖率
+    './src/core/': {
+      branches: 90,
+      functions: 95,
+      lines: 95,
+      statements: 95,
+    },
+  },
+
+  // 转换配置
+  transform: {
+    '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
+  },
+
+  // 忽略转换的模块
+  transformIgnorePatterns: [
+    'node_modules/(?!(some-es6-module)/)',
+  ],
+
+  // 测试超时时间
+  testTimeout: 10000,
+};
+```
+
+### 测试环境设置
+```typescript
+// src/test-utils/setup.ts
+import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
+import { server } from './mocks/server';
+
+// 配置 Testing Library
+configure({
+  testIdAttribute: 'data-testid',
+});
+
+// 启动 MSW 服务器
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+// 全局模拟
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// 模拟 IntersectionObserver
+global.IntersectionObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
+// 模拟 ResizeObserver
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+```
+
+## 单元测试规范
+
+### 测试文件结构
+```typescript
+// UserService.test.ts
+import { UserService } from '../UserService';
+import { UserRepository } from '../UserRepository';
+import { mockUser, mockUserData } from '../__mocks__/user';
+
+// Mock 依赖
+jest.mock('../UserRepository');
+const mockUserRepository = UserRepository as jest.MockedClass<typeof UserRepository>;
+
+describe('UserService', () => {
+  let userService: UserService;
+  let mockRepository: jest.Mocked<UserRepository>;
+
+  // 测试前设置
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRepository = new mockUserRepository() as jest.Mocked<UserRepository>;
+    userService = new UserService(mockRepository);
+  });
+
+  // 测试后清理
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('getUserById', () => {
+    it('should return user when found', async () => {
+      // Arrange (准备)
+      const userId = '123';
+      mockRepository.findById.mockResolvedValue(mockUser);
+
+      // Act (执行)
+      const result = await userService.getUserById(userId);
+
+      // Assert (断言)
+      expect(result).toEqual(mockUser);
+      expect(mockRepository.findById).toHaveBeenCalledWith(userId);
+      expect(mockRepository.findById).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw error when user not found', async () => {
+      // Arrange
+      const userId = 'nonexistent';
+      mockRepository.findById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(userService.getUserById(userId))
+        .rejects.toThrow('User not found');
+    });
+
+    it('should handle repository errors', async () => {
+      // Arrange
+      const userId = '123';
+      const error = new Error('Database connection failed');
+      mockRepository.findById.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(userService.getUserById(userId))
+        .rejects.toThrow('Database connection failed');
+    });
+  });
+
+  describe('createUser', () => {
+    it('should create user successfully', async () => {
+      // Arrange
+      mockRepository.create.mockResolvedValue(mockUser);
+      mockRepository.findByEmail.mockResolvedValue(null);
+
+      // Act
+      const result = await userService.createUser(mockUserData);
+
+      // Assert
+      expect(result).toEqual(mockUser);
+      expect(mockRepository.findByEmail).toHaveBeenCalledWith(mockUserData.email);
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...mockUserData,
+          id: expect.any(String),
+          createdAt: expect.any(Date),
+        })
+      );
+    });
+
+    it('should throw error when email already exists', async () => {
+      // Arrange
+      mockRepository.findByEmail.mockResolvedValue(mockUser);
+
+      // Act & Assert
+      await expect(userService.createUser(mockUserData))
+        .rejects.toThrow('Email already exists');
+
+      expect(mockRepository.create).not.toHaveBeenCalled();
+    });
+  });
+});
+```
+
+### 测试数据管理
+```typescript
+// src/__mocks__/user.ts
+export const mockUser = {
+  id: '123',
+  username: 'john_doe',
+  email: 'john@example.com',
+  firstName: 'John',
+  lastName: 'Doe',
+  createdAt: new Date('2023-01-01'),
+  updatedAt: new Date('2023-01-01'),
+};
+
+export const mockUserData = {
+  username: 'jane_doe',
+  email: 'jane@example.com',
+  firstName: 'Jane',
+  lastName: 'Doe',
+  password: 'password123',
+};
+
+export const mockUsers = [
+  mockUser,
+  {
+    id: '456',
+    username: 'jane_smith',
+    email: 'jane@example.com',
+    firstName: 'Jane',
+    lastName: 'Smith',
+    createdAt: new Date('2023-01-02'),
+    updatedAt: new Date('2023-01-02'),
+  },
+];
+
+// 工厂函数
+export const createMockUser = (overrides: Partial<User> = {}): User => ({
+  ...mockUser,
+  ...overrides,
+  id: overrides.id || Math.random().toString(36).substr(2, 9),
+});
+
+// 批量创建
+export const createMockUsers = (count: number): User[] =>
+  Array.from({ length: count }, (_, index) =>
+    createMockUser({ username: `user_${index}` })
+  );
+```
+
+## React 组件测试
+
+### 组件测试最佳实践
+```typescript
+// UserProfile.test.tsx
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { UserProfile } from './UserProfile';
+import { ThemeProvider } from '../providers/ThemeProvider';
+import { mockUser } from '../__mocks__/user';
+
+// 测试工具包装器
+const renderWithProviders = (ui: React.ReactElement) => {
+  return render(
+    <ThemeProvider>
+      {ui}
+    </ThemeProvider>
+  );
+};
+
+describe('UserProfile', () => {
+  const mockOnEdit = jest.fn();
+  const mockOnDelete = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('rendering', () => {
+    it('should render user information correctly', () => {
+      renderWithProviders(
+        <UserProfile
+          user={mockUser}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      // 使用语义化查询
+      expect(screen.getByRole('heading', { name: /john doe/i })).toBeInTheDocument();
+      expect(screen.getByText('john@example.com')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /编辑/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /删除/i })).toBeInTheDocument();
+    });
+
+    it('should render loading state', () => {
+      renderWithProviders(
+        <UserProfile
+          user={null}
+          loading={true}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(screen.getByText(/加载中/i)).toBeInTheDocument();
+    });
+
+    it('should render error state', () => {
+      const errorMessage = '加载用户信息失败';
+      
+      renderWithProviders(
+        <UserProfile
+          user={null}
+          error={errorMessage}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+    });
+  });
+
+  describe('interactions', () => {
+    it('should call onEdit when edit button is clicked', async () => {
+      const user = userEvent.setup();
+      
+      renderWithProviders(
+        <UserProfile
+          user={mockUser}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      const editButton = screen.getByRole('button', { name: /编辑/i });
+      await user.click(editButton);
+
+      expect(mockOnEdit).toHaveBeenCalledWith(mockUser.id);
+      expect(mockOnEdit).toHaveBeenCalledTimes(1);
+    });
+
+    it('should show confirmation before delete', async () => {
+      const user = userEvent.setup();
+      
+      // Mock window.confirm
+      const mockConfirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+      renderWithProviders(
+        <UserProfile
+          user={mockUser}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      const deleteButton = screen.getByRole('button', { name: /删除/i });
+      await user.click(deleteButton);
+
+      expect(mockConfirm).toHaveBeenCalledWith('确定要删除此用户吗？');
+      expect(mockOnDelete).toHaveBeenCalledWith(mockUser.id);
+
+      mockConfirm.mockRestore();
+    });
+
+    it('should not delete when confirmation is cancelled', async () => {
+      const user = userEvent.setup();
+      const mockConfirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+      renderWithProviders(
+        <UserProfile
+          user={mockUser}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      const deleteButton = screen.getByRole('button', { name: /删除/i });
+      await user.click(deleteButton);
+
+      expect(mockOnDelete).not.toHaveBeenCalled();
+
+      mockConfirm.mockRestore();
+    });
+  });
+
+  describe('accessibility', () => {
+    it('should have proper ARIA labels', () => {
+      renderWithProviders(
+        <UserProfile
+          user={mockUser}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      const editButton = screen.getByRole('button', { name: /编辑用户 john doe/i });
+      const deleteButton = screen.getByRole('button', { name: /删除用户 john doe/i });
+
+      expect(editButton).toHaveAttribute('aria-label');
+      expect(deleteButton).toHaveAttribute('aria-label');
+    });
+
+    it('should support keyboard navigation', async () => {
+      const user = userEvent.setup();
+      
+      renderWithProviders(
+        <UserProfile
+          user={mockUser}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+        />
+      );
+
+      // Tab navigation
+      await user.tab();
+      expect(screen.getByRole('button', { name: /编辑/i })).toHaveFocus();
+
+      await user.tab();
+      expect(screen.getByRole('button', { name: /删除/i })).toHaveFocus();
+    });
+  });
+});
+```
+
+### Hook 测试
+```typescript
+// useUser.test.ts
+import { renderHook, waitFor } from '@testing-library/react';
+import { useUser } from './useUser';
+import { userService } from '../services/userService';
+import { mockUser } from '../__mocks__/user';
+
+jest.mock('../services/userService');
+const mockUserService = userService as jest.Mocked<typeof userService>;
+
+describe('useUser', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should fetch user data successfully', async () => {
+    // Arrange
+    mockUserService.getUserById.mockResolvedValue(mockUser);
+
+    // Act
+    const { result } = renderHook(() => useUser('123'));
+
+    // Assert initial state
+    expect(result.current.loading).toBe(true);
+    expect(result.current.user).toBeNull();
+    expect(result.current.error).toBeNull();
+
+    // Wait for async operation
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('should handle error when fetching user fails', async () => {
+    // Arrange
+    const error = new Error('User not found');
+    mockUserService.getUserById.mockRejectedValue(error);
+
+    // Act
+    const { result } = renderHook(() => useUser('nonexistent'));
+
+    // Assert
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.error).toBe(error.message);
+  });
+
+  it('should refetch user data', async () => {
+    // Arrange
+    mockUserService.getUserById.mockResolvedValue(mockUser);
+
+    // Act
+    const { result } = renderHook(() => useUser('123'));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // Clear previous calls
+    jest.clearAllMocks();
+
+    // Trigger refetch
+    result.current.refetch();
+
+    // Assert
+    expect(mockUserService.getUserById).toHaveBeenCalledWith('123');
+  });
+});
+```
+
+## 集成测试
+
+### API 集成测试
+```typescript
+// api/users.integration.test.ts
+import request from 'supertest';
+import { app } from '../app';
+import { database } from '../database';
+import { createMockUser } from '../__mocks__/user';
+
+describe('/api/users', () => {
+  let testUser: any;
+
+  beforeAll(async () => {
+    await database.connect();
+  });
+
+  afterAll(async () => {
+    await database.disconnect();
+  });
+
+  beforeEach(async () => {
+    await database.clear();
+    testUser = await database.users.create(createMockUser());
+  });
+
+  describe('GET /api/users', () => {
+    it('should return list of users', async () => {
+      const response = await request(app)
+        .get('/api/users')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('users');
+      expect(response.body).toHaveProperty('total');
+      expect(response.body.users).toHaveLength(1);
+      expect(response.body.users[0]).toMatchObject({
+        id: testUser.id,
+        username: testUser.username,
+        email: testUser.email,
+      });
+    });
+
+    it('should support pagination', async () => {
+      // Create more users
+      await Promise.all([
+        database.users.create(createMockUser({ username: 'user1' })),
+        database.users.create(createMockUser({ username: 'user2' })),
+      ]);
+
+      const response = await request(app)
+        .get('/api/users?page=1&limit=2')
+        .expect(200);
+
+      expect(response.body.users).toHaveLength(2);
+      expect(response.body.total).toBe(3);
+    });
+
+    it('should support search', async () => {
+      await database.users.create(createMockUser({ 
+        username: 'jane_doe',
+        email: 'jane@example.com'
+      }));
+
+      const response = await request(app)
+        .get('/api/users?search=jane')
+        .expect(200);
+
+      expect(response.body.users).toHaveLength(1);
+      expect(response.body.users[0].username).toBe('jane_doe');
+    });
+  });
+
+  describe('POST /api/users', () => {
+    it('should create new user', async () => {
+      const userData = {
+        username: 'new_user',
+        email: 'new@example.com',
+        password: 'password123',
+      };
+
+      const response = await request(app)
+        .post('/api/users')
+        .send(userData)
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        username: userData.username,
+        email: userData.email,
+      });
+      expect(response.body).not.toHaveProperty('password');
+      expect(response.body).toHaveProperty('id');
+    });
+
+    it('should validate required fields', async () => {
+      const invalidData = {
+        username: '',
+        email: 'invalid-email',
+      };
+
+      const response = await request(app)
+        .post('/api/users')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body).toHaveProperty('errors');
+      expect(response.body.errors).toContain('Username is required');
+      expect(response.body.errors).toContain('Valid email is required');
+      expect(response.body.errors).toContain('Password is required');
+    });
+
+    it('should prevent duplicate email', async () => {
+      const userData = {
+        username: 'another_user',
+        email: testUser.email, // Use existing email
+        password: 'password123',
+      };
+
+      const response = await request(app)
+        .post('/api/users')
+        .send(userData)
+        .expect(409);
+
+      expect(response.body.message).toContain('Email already exists');
+    });
+  });
+});
+```
+
+### 数据库集成测试
+```typescript
+// repositories/UserRepository.integration.test.ts
+import { UserRepository } from './UserRepository';
+import { database } from '../database';
+import { createMockUser, mockUserData } from '../__mocks__/user';
+
+describe('UserRepository Integration', () => {
+  let userRepository: UserRepository;
+
+  beforeAll(async () => {
+    await database.connect();
+    userRepository = new UserRepository();
+  });
+
+  afterAll(async () => {
+    await database.disconnect();
+  });
+
+  beforeEach(async () => {
+    await database.clear();
+  });
+
+  describe('create', () => {
+    it('should create user in database', async () => {
+      const result = await userRepository.create(mockUserData);
+
+      expect(result).toMatchObject({
+        username: mockUserData.username,
+        email: mockUserData.email,
+      });
+      expect(result.id).toBeDefined();
+      expect(result.createdAt).toBeInstanceOf(Date);
+
+      // Verify in database
+      const dbUser = await database.users.findById(result.id);
+      expect(dbUser).toBeTruthy();
+    });
+
+    it('should handle unique constraint violation', async () => {
+      await userRepository.create(mockUserData);
+
+      await expect(userRepository.create(mockUserData))
+        .rejects.toThrow('Email already exists');
+    });
+  });
+
+  describe('findMany', () => {
+    beforeEach(async () => {
+      // Create test data
+      await Promise.all([
+        userRepository.create(createMockUser({ username: 'alice' })),
+        userRepository.create(createMockUser({ username: 'bob' })),
+        userRepository.create(createMockUser({ username: 'charlie' })),
+      ]);
+    });
+
+    it('should return paginated results', async () => {
+      const result = await userRepository.findMany({
+        page: 1,
+        limit: 2,
+      });
+
+      expect(result.users).toHaveLength(2);
+      expect(result.total).toBe(3);
+    });
+
+    it('should support search functionality', async () => {
+      const result = await userRepository.findMany({
+        search: 'alice',
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.users[0].username).toBe('alice');
+    });
+
+    it('should support sorting', async () => {
+      const result = await userRepository.findMany({
+        sortBy: 'username',
+        sortOrder: 'ASC',
+      });
+
+      const usernames = result.users.map(u => u.username);
+      expect(usernames).toEqual(['alice', 'bob', 'charlie']);
+    });
+  });
+});
+```
+
+## Mock 和测试工具
+
+### MSW (Mock Service Worker) 配置
+```typescript
+// src/test-utils/mocks/handlers.ts
+import { rest } from 'msw';
+import { mockUser, mockUsers } from '../../__mocks__/user';
+
+export const handlers = [
+  // Get users
+  rest.get('/api/users', (req, res, ctx) => {
+    const page = parseInt(req.url.searchParams.get('page') || '1');
+    const limit = parseInt(req.url.searchParams.get('limit') || '10');
+    const search = req.url.searchParams.get('search');
+
+    let filteredUsers = mockUsers;
+
+    if (search) {
+      filteredUsers = mockUsers.filter(user =>
+        user.username.includes(search) || user.email.includes(search)
+      );
+    }
+
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paginatedUsers = filteredUsers.slice(start, end);
+
+    return res(
+      ctx.json({
+        users: paginatedUsers,
+        total: filteredUsers.length,
+        page,
+        limit,
+      })
+    );
+  }),
+
+  // Get user by ID
+  rest.get('/api/users/:id', (req, res, ctx) => {
+    const { id } = req.params;
+    const user = mockUsers.find(u => u.id === id);
+
+    if (!user) {
+      return res(
+        ctx.status(404),
+        ctx.json({ message: 'User not found' })
+      );
+    }
+
+    return res(ctx.json(user));
+  }),
+
+  // Create user
+  rest.post('/api/users', async (req, res, ctx) => {
+    const userData = await req.json();
+
+    // Validate data
+    if (!userData.username || !userData.email) {
+      return res(
+        ctx.status(400),
+        ctx.json({
+          message: 'Validation failed',
+          errors: ['Username and email are required'],
+        })
+      );
+    }
+
+    // Check for duplicate email
+    const existingUser = mockUsers.find(u => u.email === userData.email);
+    if (existingUser) {
+      return res(
+        ctx.status(409),
+        ctx.json({ message: 'Email already exists' })
+      );
+    }
+
+    const newUser = {
+      id: Math.random().toString(36).substr(2, 9),
+      ...userData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return res(
+      ctx.status(201),
+      ctx.json(newUser)
+    );
+  }),
+
+  // Error simulation
+  rest.get('/api/users/error-test', (req, res, ctx) => {
+    return res(
+      ctx.status(500),
+      ctx.json({ message: 'Internal server error' })
+    );
+  }),
+];
+```
+
+```typescript
+// src/test-utils/mocks/server.ts
+import { setupServer } from 'msw/node';
+import { handlers } from './handlers';
+
+export const server = setupServer(...handlers);
+```
+
+### 自定义测试工具
+```typescript
+// src/test-utils/custom-render.tsx
+import React from 'react';
+import { render, RenderOptions } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from '../providers/ThemeProvider';
+
+interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
+  initialEntries?: string[];
+  queryClient?: QueryClient;
+}
+
+export function customRender(
+  ui: React.ReactElement,
+  options: CustomRenderOptions = {}
+) {
+  const {
+    initialEntries = ['/'],
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    }),
+    ...renderOptions
+  } = options;
+
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  return render(ui, { wrapper: Wrapper, ...renderOptions });
+}
+
+// Re-export everything from testing-library
+export * from '@testing-library/react';
+export { customRender as render };
+```
+
+## E2E 测试 (Playwright)
+
+### Playwright 配置
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+  ],
+
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+### E2E 测试示例
+```typescript
+// e2e/user-management.spec.ts
+import { test, expect, Page } from '@playwright/test';
+
+test.describe('User Management', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/users');
+  });
+
+  test('should display users list', async ({ page }) => {
+    // Wait for the page to load
+    await page.waitForSelector('[data-testid="users-list"]');
+
+    // Check if users are displayed
+    const userCards = page.locator('[data-testid="user-card"]');
+    await expect(userCards).toHaveCount.greaterThan(0);
+
+    // Check user information
+    const firstUser = userCards.first();
+    await expect(firstUser.locator('[data-testid="user-name"]')).toBeVisible();
+    await expect(firstUser.locator('[data-testid="user-email"]')).toBeVisible();
+  });
+
+  test('should create new user', async ({ page }) => {
+    // Click add user button
+    await page.click('[data-testid="add-user-button"]');
+
+    // Fill form
+    await page.fill('[data-testid="username-input"]', 'testuser');
+    await page.fill('[data-testid="email-input"]', 'test@example.com');
+    await page.fill('[data-testid="password-input"]', 'password123');
+
+    // Submit form
+    await page.click('[data-testid="submit-button"]');
+
+    // Verify success message
+    await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
+
+    // Verify user appears in list
+    await expect(page.locator('[data-testid="user-card"]').filter({
+      hasText: 'testuser'
+    })).toBeVisible();
+  });
+
+  test('should edit user', async ({ page }) => {
+    // Click edit button on first user
+    await page.click('[data-testid="user-card"]').first().locator('[data-testid="edit-button"]');
+
+    // Update username
+    await page.fill('[data-testid="username-input"]', 'updateduser');
+
+    // Submit changes
+    await page.click('[data-testid="save-button"]');
+
+    // Verify success message
+    await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
+
+    // Verify updated name appears
+    await expect(page.locator('[data-testid="user-card"]').filter({
+      hasText: 'updateduser'
+    })).toBeVisible();
+  });
+
+  test('should delete user with confirmation', async ({ page }) => {
+    // Get initial user count
+    const initialCount = await page.locator('[data-testid="user-card"]').count();
+
+    // Click delete button
+    await page.click('[data-testid="user-card"]').first().locator('[data-testid="delete-button"]');
+
+    // Handle confirmation dialog
+    page.on('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toContain('确定要删除');
+      await dialog.accept();
+    });
+
+    // Verify user is removed
+    await expect(page.locator('[data-testid="user-card"]')).toHaveCount(initialCount - 1);
+  });
+
+  test('should search users', async ({ page }) => {
+    // Enter search term
+    await page.fill('[data-testid="search-input"]', 'john');
+
+    // Wait for search results
+    await page.waitForResponse(response => 
+      response.url().includes('/api/users') && response.status() === 200
+    );
+
+    // Verify filtered results
+    const userCards = page.locator('[data-testid="user-card"]');
+    const count = await userCards.count();
+
+    for (let i = 0; i < count; i++) {
+      const userCard = userCards.nth(i);
+      const text = await userCard.textContent();
+      expect(text?.toLowerCase()).toContain('john');
+    }
+  });
+
+  test('should handle network errors gracefully', async ({ page }) => {
+    // Intercept API calls and return error
+    await page.route('/api/users', route => {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Server error' })
+      });
+    });
+
+    await page.reload();
+
+    // Verify error message is displayed
+    await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+    await expect(page.locator('[data-testid="error-message"]')).toContainText('加载失败');
+  });
+});
+```
+
+## 性能测试
+
+### 组件性能测试
+```typescript
+// performance/UserList.perf.test.ts
+import { render } from '@testing-library/react';
+import { UserList } from '../components/UserList';
+import { createMockUsers } from '../__mocks__/user';
+
+describe('UserList Performance', () => {
+  it('should render large user list efficiently', () => {
+    const largeUserList = createMockUsers(1000);
+    
+    const startTime = performance.now();
+    
+    render(<UserList users={largeUserList} />);
+    
+    const endTime = performance.now();
+    const renderTime = endTime - startTime;
+    
+    // Should render within 100ms
+    expect(renderTime).toBeLessThan(100);
+  });
+
+  it('should handle frequent re-renders efficiently', () => {
+    const users = createMockUsers(100);
+    
+    const { rerender } = render(<UserList users={users} />);
+    
+    const startTime = performance.now();
+    
+    // Simulate 50 re-renders
+    for (let i = 0; i < 50; i++) {
+      rerender(<UserList users={[...users, createMockUser()]} />);
+    }
+    
+    const endTime = performance.now();
+    const totalTime = endTime - startTime;
+    
+    // Should complete all re-renders within 200ms
+    expect(totalTime).toBeLessThan(200);
+  });
+});
+```
+
+## 测试报告和监控
+
+### 覆盖率报告配置
+```javascript
+// jest.config.js (覆盖率配置部分)
+module.exports = {
+  // ... 其他配置
+
+  // 覆盖率收集
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageReporters: [
+    'text',
+    'text-summary',
+    'html',
+    'lcov',
+    'json',
+  ],
+
+  // 覆盖率阈值
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+    './src/core/': {
+      branches: 90,
+      functions: 95,
+      lines: 95,
+      statements: 95,
+    },
+  },
+};
+```
+
+### CI/CD 集成
+```yaml
+# .github/workflows/test.yml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+      
+      - name: Run type check
+        run: npm run type-check
+      
+      - name: Run unit tests
+        run: npm run test:coverage
+      
+      - name: Run E2E tests
+        run: npm run test:e2e
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+```
+
+## 测试最佳实践总结
+
+### 测试编写原则
+1. **独立性**：每个测试应该独立运行，不依赖其他测试
+2. **可重复性**：测试结果应该一致，不受环境影响
+3. **快速执行**：单元测试应该快速完成
+4. **清晰描述**：测试名称应该清楚描述测试内容
+5. **单一职责**：每个测试只验证一个特定行为
+
+### 常见反模式避免
+- 不要在测试中使用真实的外部服务
+- 不要编写过于复杂的测试设置
+- 不要测试实现细节，专注于行为
+- 不要忽略边界条件和错误情况
+- 不要编写脆弱的测试（过度依赖DOM结构）
+
+### 测试维护
+- 定期更新测试数据和Mock
+- 及时清理无用的测试代码
+- 保持测试代码的质量标准
+- 文档化复杂的测试场景
+- 监控测试执行时间和稳定性

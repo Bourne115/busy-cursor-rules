@@ -94,7 +94,7 @@
     "typescript": "^5.3.2"
   },
   "simple-git-hooks": {
-    "pre-commit": "lint-staged",
+    "pre-commit": "npx lint-staged",
     "commit-msg": "npx commitlint --edit $1"
   },
   "lint-staged": {

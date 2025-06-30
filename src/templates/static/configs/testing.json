@@ -1,0 +1,47 @@
+{
+  "id": "testing",
+  "name": "测试",
+  "description": "单元测试、集成测试、端到端测试",
+  "version": "1.0.0",
+  "category": "workflow",
+  "tags": ["testing", "unit-test", "integration-test", "e2e", "jest", "vitest"],
+  "author": "@qile-c/cursor-rules-cli",
+  "compatibility": {
+    "projectTypes": [
+      "react",
+      "vue",
+      "node",
+      "angular",
+      "next",
+      "nuxt",
+      "generic"
+    ],
+    "languages": ["javascript", "typescript"],
+    "frameworks": []
+  },
+  "rules": [
+    {
+      "name": "通用编程规范",
+      "file": "basic/general.mdc",
+      "required": true
+    },
+    {
+      "name": "TypeScript开发规范",
+      "file": "basic/typescript.mdc",
+      "required": false,
+      "condition": "hasTypeScript"
+    },
+    {
+      "name": "测试开发规范",
+      "file": "testing/testing.mdc",
+      "required": true
+    }
+  ],
+  "dependencies": [],
+  "npmDependencies": ["jest", "@testing-library/jest-dom", "vitest"],
+  "variables": {
+    "TEST_FRAMEWORK": "jest",
+    "COVERAGE_THRESHOLD": "80",
+    "TEST_ENVIRONMENT": "jsdom"
+  }
+}

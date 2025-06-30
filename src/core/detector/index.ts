@@ -144,9 +144,12 @@ function detectFramework(
 }
 
 /**
- * 获取推荐的规则模板
+ * 获取推荐的规则模板（已弃用，请使用新的推荐系统）
+ * @deprecated 使用 @/core/recommendation/integration.recommendationSystem.getSimpleRecommendations() 替代
  */
 export function getRecommendedTemplates(projectInfo: ProjectInfo): string[] {
+  console.warn('getRecommendedTemplates 已弃用，请使用新的推荐系统');
+  
   const templates: string[] = ['basic']; // 基础规则总是推荐
 
   switch (projectInfo.type) {
